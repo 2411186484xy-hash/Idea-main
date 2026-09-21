@@ -1,0 +1,35 @@
+[project]
+name = "idea-incubation-os"
+version = "2.0.0"
+description = "Literature deep-read and idea-incubation OS. Ends at idea delivery; researcher feedback is the only validation signal."
+requires-python = ">=3.11"
+dependencies = [
+    "arxiv>=4.0.1",
+    "pyalex>=0.21",
+    "pyzotero>=1.15.1",
+]
+
+[project.optional-dependencies]
+pdf-pipeline = ["pymupdf>=1.28.2"]
+retrieval = ["rank-bm25>=0.2.2", "scikit-learn>=1.3"]
+vector = ["chromadb>=0.4"]
+orchestration = ["pyyaml>=6.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-timeout>=2.4",
+    "ruff==0.16.3",
+]
+
+[tool.pytest.ini_options]
+addopts = '-m "not smoke"'
+testpaths = ["tests"]
+markers = ["smoke: external-service reachability, off by default"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]

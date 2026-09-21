@@ -1,0 +1,21 @@
+# Runtime state: run dirs are deleted on finish, never committed
+runs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Never commit binaries or secrets (papers live on E:\Paper, not here)
+*.pdf
+*.png
+*.zip
+.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

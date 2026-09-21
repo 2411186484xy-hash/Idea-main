@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "note": "本文件被 pipelines/permissions.py 真实执行，无孤儿 action。默认 DENY。",
+  "default": "deny",
+  "actions": {
+    "retrieval_run": {"policy": "allow"},
+    "zotero_read": {"policy": "allow"},
+    "zotero_write": {"policy": "allow_with_recent_backup", "recent_backup_days": 7},
+    "modify_project": {"policy": "allow_with_recent_backup", "recent_backup_days": 7},
+    "publish_idea": {"policy": "allow"},
+    "refreeze_run": {"policy": "allow_with_reason", "reason_required": true}
+  }
+}
