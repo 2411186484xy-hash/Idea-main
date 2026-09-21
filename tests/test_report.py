@@ -64,3 +64,14 @@ def test_session_brief_lessons_and_todos(frozen_clock):
     assert brief["lessons"][-1]["lesson"] == "lesson 6"
     assert any("backfill 1 researcher verdicts" in todo for todo in brief["todos"])
     assert any("supply closed" in todo for todo in brief["todos"])
+
+
+def test_deepread_brief_is_blind():
+    pack = report.deepread_brief("doi:10.1/x", "full text here")
+    assert pack["ok"] and pack["blind"] is True
+    assert pack["writer"]["text_md"] == "full text here"
+    assert pack["verifier"]["claims_to_check"] == []
+    assert pack["verifier"]["sees_writer_notes"] is False
+    assert "notes" not in pack["verifier"]
+    assert report.deepread_brief("", "text")["ok"] is False
+    assert report.deepread_brief("doi:10.1/x", "  ")["ok"] is False

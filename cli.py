@@ -27,8 +27,6 @@ from pipelines import (  # noqa: E402
 )
 
 NOT_IMPLEMENTED = {
-    "deepread-brief": "M2c",
-    "pdf-extract": "M2c",
     "idea-brief": "M2f",
     "publish": "M2h",
     "zotero-manifest": "M2e",
@@ -75,8 +73,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--payload", required=True, help="JSON object")
     s.add_argument("--pdf", help="archive PDF to the paper library + mirror")
 
-    sub.add_parser("deepread-brief", help="writer/verifier blind-separated pack")
-    sub.add_parser("pdf-extract", help="PDF text extraction (PyMuPDF first channel)")
+    s = sub.add_parser("deepread-brief", help="writer/verifier blind-separated pack")
+    s.add_argument("--paper-key", required=True)
+    s.add_argument("--text", default="")
+    s.add_argument("--text-file", default="")
+    s = sub.add_parser("pdf-extract", help="PDF text extraction (PyMuPDF first channel)")
+    s.add_argument("path")
+    s.add_argument("--max-pages", type=int, default=0)
 
     s = sub.add_parser("claims-add", help="append a page-anchored claim (lint-gated)")
     s.add_argument("--payload", required=True, help="JSON object")
@@ -165,6 +168,18 @@ def main(argv: list[str] | None = None) -> int:
         return _emit(papers.screen_rank(args.run_id))
     if cmd == "query-brief":
         return _emit(report.query_brief(args.query, args.run))
+    if cmd == "pdf-extract":
+        from pipelines import pdf
+
+        return _emit(pdf.extract(args.path, args.max_pages))
+    if cmd == "deepread-brief":
+        text = args.text
+        if args.text_file:
+            try:
+                text = store.read_text(Path(args.text_file))
+            except OSError as exc:
+                return _emit({"ok": False, "error": f"text file unreadable: {exc}"})
+        return _emit(report.deepread_brief(args.paper_key, text))
     if cmd == "paper-add":
         payload = _load_json_arg(args.payload, "--payload")
         if payload is None:

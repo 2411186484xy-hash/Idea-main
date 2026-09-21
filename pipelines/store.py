@@ -213,3 +213,14 @@ def list_run_dirs() -> list[Path]:
     if not root.is_dir():
         return []
     return sorted(d for d in root.iterdir() if d.is_dir())
+
+
+def read_bytes(path: Path) -> bytes:
+    """Raw byte read (pdf port); the only byte-read primitive in the repo."""
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
+def read_text(path: Path) -> str:
+    """UTF-8 text read (brief inputs); the only text-read primitive in the repo."""
+    return path.read_text(encoding="utf-8")

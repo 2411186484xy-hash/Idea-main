@@ -104,3 +104,22 @@ def session_brief() -> dict[str, Any]:
         "purpose": str(canon.value("purpose")),
         "stale_warnings": runs.stale_warnings(),
     }
+
+
+def deepread_brief(paper_key: str, text_md: str) -> dict[str, Any]:
+    """M2c: writer/verifier blind-separated pack (paper-qa borrow, design only).
+
+    The verifier book carries the text and nothing else: no writer notes, no
+    draft claims. Judgement stays in-session; both books are pure data."""
+    key = (paper_key or "").strip()
+    text = (text_md or "").strip()
+    if not key or not text:
+        return {"ok": False, "error": "paper_key and text_md are both required"}
+    writer = {"paper_key": key, "text_md": text,
+              "task": "extract page-anchored claims (verbatim quote + page_anchor each)"}
+    verifier = {"paper_key": key, "text_md": text,
+                "task": "verify each claim quote against the text only; "
+                        "verdict CONFIRMED|DEVIATED|NOT_FOUND",
+                "claims_to_check": [], "sees_writer_notes": False}
+    return {"ok": True, "paper_key": key, "chars": len(text),
+            "writer": writer, "verifier": verifier, "blind": True}
