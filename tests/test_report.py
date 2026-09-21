@@ -29,6 +29,22 @@ def test_session_brief_four_blocks(frozen_clock):
     assert not any("supply closed" in todo for todo in warm["todos"])
 
 
+def test_query_brief_flags_repeat_queries(frozen_clock):
+    runs.start("weekly", "WEEKLYRUN-20260921-120000")
+    first = report.query_brief("crispr off-target", "WEEKLYRUN-20260921-120000")
+    assert first["ok"] and len(first["perspectives"]) == 4
+    assert not any(p["duplicate"] for p in first["perspectives"])
+    run = runs.load("WEEKLYRUN-20260921-120000")
+    run.query_log.append({"query": "crispr off-target", "backend": "openalex",
+                          "at": "2026-09-21T12:00:00Z"})
+    runs.save(run)
+    second = report.query_brief("crispr off-target", "WEEKLYRUN-20260921-120000")
+    direct = next(p for p in second["perspectives"] if p["route"] == "direct")
+    assert direct["duplicate"] and len(direct["hits"]) == 1
+    assert report.query_brief("", None)["ok"] is False
+    assert report.query_brief("x", "WEEKLYRUN-00000000-000000")["ok"] is False
+
+
 def test_session_brief_lessons_and_todos(frozen_clock):
     for i in range(7):
         store.append_jsonl(

@@ -14,6 +14,36 @@ from . import canon, feedback, runs, store
 
 _LESSON_DISPLAY_CAP = 5  # display truncation only, not a governance gate
 
+_QUERY_ROUTES = (
+    ("direct", ""),
+    ("counter_boundary", " limitations OR counter-evidence OR boundary conditions"),
+    ("transfer", " transfer OR analogy OR cross-domain application"),
+    ("frontier", " frontier OR emerging OR review"),
+)
+
+
+def query_brief(base: str, run_id: str | None = None) -> dict[str, Any]:
+    """M2a: mechanical multi-perspective pack + query_log dedup flags (pure read)."""
+    query = (base or "").strip()
+    if not query:
+        return {"ok": False, "error": "query required"}
+    logged: list[dict[str, Any]] = []
+    if run_id:
+        run = runs.load(run_id)
+        if run is None:
+            return {"ok": False, "error": f"run not found: {run_id}"}
+        logged = list(run.query_log)
+    seen: dict[str, list[dict[str, Any]]] = {}
+    for entry in logged:
+        seen.setdefault(str(entry.get("query", "")).casefold().strip(), []).append(entry)
+    perspectives = []
+    for route, suffix in _QUERY_ROUTES:
+        text = query + suffix
+        hits = seen.get(text.casefold().strip(), [])
+        perspectives.append({"route": route, "query": text, "duplicate": bool(hits), "hits": hits})
+    return {"ok": True, "base": query, "run_id": run_id,
+            "perspectives": perspectives, "logged_queries": len(logged)}
+
 
 def _count_jsonl(path) -> int:
     return len(store.read_jsonl(path))

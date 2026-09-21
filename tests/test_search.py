@@ -94,5 +94,68 @@ def test_search_dedups_and_rejects_unknown_backend(monkeypatch):
     monkeypatch.setattr(search, "_fetch", lambda url, params, timeout: (body, None))
     result = search.search("q", backends=["openalex", "openalex"])
     assert result["ok"] and len(result["results"]) == 1
-    bad = search.search("q", backends=["crossref"])
+    bad = search.search("q", backends=["no-such-backend"])
     assert not bad["ok"] and "unknown backends" in bad["error"]
+
+
+def test_crossref_adapter_strips_abstract_and_flags_retraction(monkeypatch):
+    body = json.dumps({"message": {"items": [
+        {"DOI": "10.1/clean", "title": ["Clean"],
+         "abstract": "<jats:p>plain abstract</jats:p>",
+         "container-title": ["Nature"], "published-print": {"date-parts": [[2024]]},
+         "is-referenced-by-count": 7},
+        {"DOI": "10.1/bad", "title": ["Bad"], "updated-by": [{"type": "retraction"}]},
+        {"title": ["No DOI"]},
+    ]}})
+    monkeypatch.setattr(search, "_fetch", lambda url, params, timeout: (body, None))
+    results, errors = search.crossref_search("x", limit=3)
+    assert len(results) == 2 and len(errors) == 1 and errors[0]["category"] == "gate"
+    clean = next(c for c in results if c["paper_key"] == "doi:10.1/clean")
+    assert clean["abstract"] == "plain abstract" and clean["year"] == 2024
+    assert clean["venue"] == "Nature" and clean["retraction"]["status"] == "none"
+    bad = next(c for c in results if c["paper_key"] == "doi:10.1/bad")
+    assert bad["retraction"]["status"] == "flagged"
+    assert bad["retraction"]["checked_backends"] == ["crossref_update_to"]
+
+
+def test_crossref_transport_failure_is_envelope(monkeypatch):
+    def boom(req, timeout):
+        raise OSError("offline")
+
+    monkeypatch.setattr(search, "_urlopen_noproxy", boom)
+    results, errors = search.crossref_search("anything")
+    assert results == [] and errors[0]["category"] in ("network", "http")
+
+
+def test_europepmc_adapter_maps_doi_and_pmid(monkeypatch):
+    body = json.dumps({"resultList": {"result": [
+        {"doi": "10.2/a", "title": "A", "abstractText": "abs",
+         "pubYear": "2023", "journalTitle": "J", "citedByCount": 3},
+        {"pmid": "123", "title": "B"},
+        {"title": "No id"},
+    ]}})
+    monkeypatch.setattr(search, "_fetch", lambda url, params, timeout: (body, None))
+    results, errors = search.europepmc_search("x", limit=3)
+    assert len(results) == 2 and len(errors) == 1
+    assert results[0]["paper_key"] == "doi:10.2/a" and results[0]["abstract"] == "abs"
+    assert results[0]["year"] == 2023 and results[1]["paper_key"] == "pmid:123"
+
+
+def test_search_all_four_backends_dispatch(monkeypatch):
+    seen: list[str] = []
+
+    def fake(url, params, timeout):
+        seen.append(url)
+        if "openalex" in url:
+            return json.dumps({"results": []}), None
+        if "arxiv" in url:
+            return ("""<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>""", None)
+        if "crossref" in url:
+            return json.dumps({"message": {"items": []}}), None
+        return json.dumps({"resultList": {"result": []}}), None
+
+    monkeypatch.setattr(search, "_fetch", fake)
+    monkeypatch.setattr(search, "_LAST_ARXIV_AT", None)
+    result = search.search("q")
+    assert result["ok"] and result["errors"] == []
+    assert len(seen) == 4

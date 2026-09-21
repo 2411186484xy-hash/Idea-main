@@ -36,8 +36,8 @@
   },
   "search": {
     "active": {
-      "value": ["openalex", "arxiv"],
-      "why": "FOUNDATION §5：起步双通道；crossref（撤稿）/europepmc 落地测试后才进 ACTIVE"
+      "value": ["openalex", "arxiv", "crossref", "europepmc"],
+      "why": "M2a 落地：crossref 撤稿 update-to/updated-by 通道 + europepmc 第四通道均有真记录与 mock 测试后进 ACTIVE"
     },
     "polite_pool_mailto": {
       "value": "2411186484xy@gmail.com",

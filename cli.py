@@ -27,7 +27,6 @@ from pipelines import (  # noqa: E402
 )
 
 NOT_IMPLEMENTED = {
-    "query-brief": "M2a",
     "deepread-brief": "M2c",
     "pdf-extract": "M2c",
     "idea-brief": "M2f",
@@ -65,7 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--backend", action="append")
     s.add_argument("--run", help="log the query into this run's query_log")
 
-    sub.add_parser("query-brief", help="multi-perspective query pack")
+    s = sub.add_parser("query-brief", help="multi-perspective query pack")
+    s.add_argument("query")
+    s.add_argument("--run", help="flag repeats against this run's query_log")
     s = sub.add_parser("screen-rank", help="rule-based ranking + stop criterion")
     s.add_argument("run_id")
 
@@ -162,6 +163,8 @@ def main(argv: list[str] | None = None) -> int:
         return _emit(result)
     if cmd == "screen-rank":
         return _emit(papers.screen_rank(args.run_id))
+    if cmd == "query-brief":
+        return _emit(report.query_brief(args.query, args.run))
     if cmd == "paper-add":
         payload = _load_json_arg(args.payload, "--payload")
         if payload is None:

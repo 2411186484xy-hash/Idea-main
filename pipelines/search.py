@@ -1,4 +1,4 @@
-"""L2 search port: OpenAlex + arXiv adapters behind one envelope contract.
+"""L2 search port: OpenAlex + arXiv + Crossref + EuropePMC behind one envelope.
 
 Network discipline (V1-proven): polite-pool mailto, identifiable UA, arXiv
 3s interval, SSL certifi fallback, sandbox proxy bypass, timeouts — failures
@@ -9,6 +9,7 @@ restore is ported verbatim from V1 literature_search_tools.py:1067.
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -65,6 +66,24 @@ def _fetch(url: str, params: dict[str, Any], timeout: int) -> tuple[str | None, 
         source = url.split("/")[2] if "://" in url else url
         return None, _envelope(source, category, f"{type(exc).__name__}: {exc}")
 
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+def _strip_tags(text: str | None) -> str:
+    return _TAG_RE.sub("", text or "").strip()
+
+def _crossref_year(item: dict[str, Any]) -> int | None:
+    for key in ("published-print", "published-online", "published", "created"):
+        parts = ((item.get(key) or {}).get("date-parts") or [[]])[0]
+        if parts and str(parts[0]).isdigit():
+            return int(parts[0])
+    return None
+
+def _crossref_retracted(item: dict[str, Any]) -> bool:
+    for u in item.get("updated-by") or []:
+        if "retract" in str(u.get("type", "")).lower():
+            return True
+    return bool(item.get("update-to"))
 
 def restore_abstract(inverted_index: dict[str, list[int]] | None) -> str:
     """Rebuild the abstract from OpenAlex inverted index (V1 :1067, verbatim port)."""
@@ -196,6 +215,63 @@ def arxiv_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], lis
             results.append(store.to_dict(cand))
     return results, []
 
+def crossref_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Crossref discovery + update-to/updated-by retraction channel (M2a)."""
+    body, err = _fetch("https://api.crossref.org/works",
+        {"query": query, "rows": limit, "select": "DOI,title,abstract,container-title,published,created,is-referenced-by-count,updated-by,update-to"},
+        int(canon.value("search.timeout_seconds")))
+    if err or body is None:
+        return [], [err or {"source": "crossref", "category": "network", "message": "no body"}]
+    try:
+        items = json.loads(body).get("message", {}).get("items", [])
+    except ValueError as exc:
+        return [], [_envelope("crossref", "parse", f"json parse: {exc}")]
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    for it in items:
+        doi = str(it.get("DOI") or "").strip()
+        cand = _candidate(title=str((it.get("title") or [""])[0] or ""),
+            identifiers={"doi": doi} if doi else {}, backend="crossref",
+            abstract=_strip_tags(it.get("abstract")),
+            year=_crossref_year(it), venue=str((it.get("container-title") or [None])[0] or "") or None,
+            cited_by=it.get("is-referenced-by-count"), retracted=_crossref_retracted(it),
+            checked_backend="crossref_update_to")
+        if cand is None:
+            errors.append(_envelope("crossref", "gate", f"work without DOI dropped: {str(it.get('title'))[:60]}"))
+            continue
+        results.append(store.to_dict(cand))
+    return results, errors
+
+def europepmc_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """EuropePMC discovery (M2a, fourth channel; core resultType carries abstracts)."""
+    body, err = _fetch("https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+        {"query": query, "format": "json", "pageSize": limit, "resultType": "core"},
+        int(canon.value("search.timeout_seconds")))
+    if err or body is None:
+        return [], [err or {"source": "europepmc", "category": "network", "message": "no body"}]
+    try:
+        hits = json.loads(body).get("resultList", {}).get("result", [])
+    except ValueError as exc:
+        return [], [_envelope("europepmc", "parse", f"json parse: {exc}")]
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    for r in hits:
+        doi = str(r.get("doi") or "").strip()
+        pmid = str(r.get("pmid") or "").strip()
+        year = str(r.get("pubYear") or "")
+        cand = _candidate(title=str(r.get("title") or ""),
+            identifiers={"doi": doi} if doi else ({"pmid": pmid} if pmid else {}),
+            backend="europepmc", abstract=str(r.get("abstractText") or "").strip(),
+            year=int(year) if year.isdigit() else None, venue=r.get("journalTitle"),
+            cited_by=r.get("citedByCount"), retracted=False, checked_backend="europepmc")
+        if cand is None:
+            errors.append(_envelope("europepmc", "gate", f"hit without identifier dropped: {str(r.get('title'))[:60]}"))
+            continue
+        results.append(store.to_dict(cand))
+    return results, errors
+
+_ADAPTERS = {"openalex": openalex_search, "arxiv": arxiv_search,
+             "crossref": crossref_search, "europepmc": europepmc_search}
 
 def search(
     query: str, limit: int = 15, backends: list[str] | None = None
@@ -206,14 +282,10 @@ def search(
     unknown = [b for b in chosen if b not in active]
     if unknown:
         return {"ok": False, "error": f"unknown backends {unknown}; active: {active}"}
-    if any(b not in ("openalex", "arxiv") for b in chosen):
-        return {"ok": False, "error": f"adapter not implemented yet: {chosen}"}
     pool: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     for backend in chosen:
-        found, errs = (
-            openalex_search(query, limit) if backend == "openalex" else arxiv_search(query, limit)
-        )
+        found, errs = _ADAPTERS[backend](query, limit)
         pool.extend(found)
         errors.extend(errs)
     seen: set[str] = set()
