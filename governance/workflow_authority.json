@@ -1,65 +1,115 @@
 {
-  "schema_version": 2,
-  "purpose": "文献发现 → L2 全量 + idea 驱动按需 L3 深读 → Zotero 审计入库 → Idea Seed/Candidate → 成品交付。止于 Idea 交付；研究者反馈是唯一验证信号。",
-  "lineage": "V2-0001: fork of 科研-Idea canon (DEC-0001~0037). Frozen runs of v1 are read-only references, never rewritten.",
-  "operator": "opencode",
+  "schema_version": 3,
+  "purpose": "文献发现 → L2 候选 + idea 驱动按需 L3 深读 → claims 知识层 → Zotero 审计入库 → idea 孵化与交付。止于 idea 交付；研究者反馈是唯一验证信号。认知判断归会话内模型，本地代码只做通道、门禁、审计、状态。",
+  "lineage": "V2-0002: port-style rewrite (M0) of the v1.1 skeleton. V1 (科研-Idea) stays read-only in its own repo; only validated assets were ported (docs/FOUNDATION-DESIGN.md §1.2).",
   "identity": {
-    "id_prefix": "OPENCODE-",
-    "zotero_sidebar_root": "paper",
-    "zotero_collections": ["01_recent-week", "02_researcher-reviewed-for-followup", "03_researcher-E-drive", "04_all-opencode-found"],
-    "delivery_root": "E:\\Idea",
-    "paper_root": "E:\\Paper",
-    "paper_mirror_root": "E:\\Backup\\Paper",
-    "idea_mirror_root": "E:\\Backup\\Idea",
-    "forbidden_input_roots": ["E:\\Project", "trae-input", "C:\\Users\\User\\Documents\\3D重建科研"]
+    "delivery_root": {
+      "value": "E:\\Idea",
+      "why": "用户文件架构定调：成品交付区（V1 已有 29 目录）；下游两仓只读，永不回写"
+    },
+    "paper_root": {
+      "value": "E:\\Paper",
+      "why": "用户定调：paper-add 归档真源 library/<paper_key>/，_inbox 为研究者投入区"
+    },
+    "paper_mirror_root": {
+      "value": "E:\\Backup\\Paper",
+      "why": "用户定调：paper-add 归档即镜像；V1 已在用的备份区"
+    },
+    "idea_mirror_root": {
+      "value": "E:\\Backup\\Idea",
+      "why": "用户定调：publish 即镜像；backup-verify 做新鲜度与抽样恢复"
+    },
+    "forbidden_input_roots": {
+      "value": ["E:\\Project", "trae-input", "C:\\Users\\User\\Documents\\3D重建科研"],
+      "why": "AGENTS.md 红线：禁入区，任何命令不得读取"
+    }
   },
   "scope_boundary": {
-    "in_scope": ["literature_discovery", "l2_cards", "idea_driven_l3", "zotero_audited_import", "idea_seed_candidate", "idea_delivery"],
-    "out_of_scope_even_with_authorization": ["rq_tracks", "experiment_tracks", "code_execution", "dependency_install", "paper_writing", "submission"]
+    "in_scope": {
+      "value": ["literature_discovery", "l2_cards", "idea_driven_l3", "claims_hub", "zotero_audited_import", "idea_incubation", "idea_delivery"],
+      "why": "FOUNDATION §0 定位：止于 Idea 交付"
+    },
+    "out_of_scope_even_with_authorization": {
+      "value": ["rq_tracks", "experiment_tracks", "code_execution", "dependency_install", "paper_writing", "submission"],
+      "why": "V1 实证：范围蠕动是治理肥胖之源；下游两仓承接"
+    }
   },
-  "retrieval": {
-    "trigger": "on_demand_researcher_request",
-    "trigger_phrases": ["执行一次文献检索任务", "执行文献检索", "执行本周任务", "开始检索"],
-    "time_policy": {"minimum_discovery_minutes": 30, "minimum_deep_read_minutes": 30, "soft_warn_minutes": 180},
-    "per_candidate_hard_gates": ["identifier_present", "second_pass_verify", "retraction_check"],
-    "journal_quality": {"mode": "soft_reference_only", "q1_q2": "preferred", "q3": "watchlist_only", "machine_may_not_write_verified_registry": true},
-    "relevance": {"selector": "conversation_model_over_full_recall_pool", "local_rerank_is_sort_hint_only": true},
-    "retraction": {"channels": ["crossref_update_to_retraction", "openalex_is_retracted"], "on_hit": "fail_retracted"},
-    "living_queries": {"precision_window": 2, "retire_below": 0.4, "frontier_budget_cap": 0.34}
+  "search": {
+    "active": {
+      "value": ["openalex", "arxiv"],
+      "why": "FOUNDATION §5：起步双通道；crossref（撤稿）/europepmc 落地测试后才进 ACTIVE"
+    },
+    "polite_pool_mailto": {
+      "value": "2411186484xy@gmail.com",
+      "why": "V1 实测：OpenAlex polite pool 显著降低 429（literature_search_tools.py EMAIL_FOR_POLITE_POOL 原值移植）"
+    },
+    "user_agent": {
+      "value": "idea-os-v2 (research tool; mailto:2411186484xy@gmail.com)",
+      "why": "V1 网络纪律：OpenAlex/Crossref 要求可识别 UA"
+    },
+    "arxiv_interval_seconds": {
+      "value": 3,
+      "why": "V1 网络纪律：arXiv API 官方建议 ≥3s 间隔"
+    },
+    "timeout_seconds": {
+      "value": 20,
+      "why": "V1 实测超时容忍（net.py 12-20s）；V2 目标 search P95<5s，20s 为硬顶"
+    },
+    "retraction_channels": {
+      "value": ["openalex_is_retracted", "crossref_update_to"],
+      "why": "V1 硬门：撤稿双通道一票否决；M0 仅 openalex 通道生效，crossref 在 M2a"
+    }
   },
-  "deep_read": {
-    "l2": {"quota_per_run": [10, 15], "gate": "hard", "registers_agent_read": false, "writes_zotero": false},
-    "l3": {"mode": "idea_driven_on_demand", "rule": "corpus_gate 3+1+1 evidence papers must be L3", "paths": ["visual-critical", "numeric"]},
-    "templates": {"pre_reading_questions": 6, "two_pass": true, "assumption_ledger": "anchor_only", "figure_protocol_items": 5},
-    "writer_verifier": {"verdicts": ["CONFIRMED", "DEVIATED", "NOT_FOUND"], "verifier_sees": "text_dump_plus_notes_only"},
-    "lint": {"page_anchor_required": true, "formula_placeholder_is_violation": true, "violation_blocks_registration": true}
+  "coverage": {
+    "routes": {
+      "value": ["direct", "counter_boundary", "transfer", "frontier"],
+      "why": "V1 四路由语义原样继承（FOUNDATION §1.2）"
+    }
   },
-  "claims_hub": {
-    "store": "knowledge/corpus-claims.jsonl",
-    "views": ["corpus-facts.md", "contradiction-matrix", "gap-map.md"],
-    "claim_fields": ["id", "paper_key", "text", "confidence", "verifier_verdict", "page_anchors"]
+  "quotas": {
+    "l2_per_run": {
+      "value": [10, 15],
+      "why": "V1 实证 L2 配额区间（canon DEC 继承）"
+    },
+    "screen_stop_n": {
+      "value": 5,
+      "why": "asreview 3,788★ 停止准则：连续 N 低相关即停（GITHUB-SURVEY 锚）"
+    },
+    "screen_stop_score": {
+      "value": 2,
+      "why": "规则版排序的低分阈值；排序只是提示，判断归会话模型"
+    }
   },
-  "idea": {
-    "corpus_gate": {"direct_fulltext": 3, "recent": 1, "counter_or_boundary": 1, "gap_stack_may_accumulate_across_runs": true},
-    "quality_card_6d": ["novelty", "rigor", "feasibility", "clarity", "data_availability", "venue_fit"],
-    "hold_rule": "any_dimension_below_2_of_5_holds",
-    "required_attacks": 6,
-    "maximum_deep_audit_candidates": 3,
-    "tracks": {"user": "priority_scheduling_and_champion_slots", "pipeline": "same_gates_same_attacks"},
-    "supply_policy": "pipeline_throttled_while_stock_undigested_user_track_unrestricted",
-    "delivery_tiers": {"core": "4_files_complete", "enriched": "optional_plus_9", "skeleton": "absorbed_5"},
-    "feedback_loop": {"verdicts": ["accept", "reject", "uncertain"], "reject_writes_failure_ledger": true, "reason_required": true},
-    "anti_patterns": "knowledge/anti-pattern-cards.md injected before every generation run"
+  "limits": {
+    "stale_hours": {
+      "value": 24,
+      "why": "V1 教训：active 且空候选超 24h 提示吸收或删除"
+    },
+    "canon_max_lines": {
+      "value": 200,
+      "why": "V1 之弊：canon 73.3KB 机制脂肪；V2 治理体积红线"
+    },
+    "code_line_budget": {
+      "value": 4000,
+      "why": "V1 ~24k 行 / 74 命令之弊；V2 ≤4k 行 / 21 命令（test_architecture 强制）"
+    },
+    "test_line_budget": {
+      "value": 3000,
+      "why": "测试规模预算（test_architecture 强制）"
+    },
+    "module_line_max": {
+      "value": 300,
+      "why": "FOUNDATION §0.1：模块 ≤300 行/个"
+    }
   },
-  "runs": {
-    "naming": "WEEKLYRUN-* / IDEARUN-* (compat names, on-demand semantics)",
-    "single_writer": "run.json is the sole truth; ledgers are derived views",
-    "freeze": {"newline": "LF", "hash": "sha256", "crlf_variants_accepted_on_verify": true},
-    "refreeze": {"requires_reason": true, "appends_refreeze_history": true, "never_rewrites_content": true},
-    "finish_gates": {"l2_quota": [10, 15], "coverage_4_routes": true, "ledger_matches_run": true, "zotero_readback_archived": true}
-  },
-  "week_modes": {"alternation": "2:2 per-run", "modes": ["gap_deep_dive", "frontier_scan"], "adaptive": "stall_cuts_early_hot_streak_extends_max_3_to_1", "explicit_choice_wins": true},
-  "parallel": {"retrieval": 6, "second_pass": 5, "recognition": 4, "deep_read": 4, "idea_red_team": 5, "serial_only": ["zotero_write", "ledger", "report"]},
-  "downstream": {"mode": "optional_exit_dormant", "shares": "E:\\Idea read-only", "never_writes_back": ["runs", "state", "zotero"]},
-  "external": {"policy": "borrow_not_merge", "data_tiers": ["replace", "thin_adapter", "design_borrow"], "forbidden_licenses": ["AGPL", "GPL", "NOASSERTION", "no-license"], "activation": "trigger_table_JIT_only"}
+  "external": {
+    "policy": {
+      "value": "borrow_not_merge",
+      "why": "AGENTS.md 红线：外部只借鉴不融合"
+    },
+    "forbidden_licenses": {
+      "value": ["AGPL", "GPL", "NOASSERTION", "no-license"],
+      "why": "AGENTS.md 红线：禁融许可证"
+    }
+  }
 }

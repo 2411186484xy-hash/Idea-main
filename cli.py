@@ -1,4 +1,9 @@
-"""Single CLI entry: `python cli.py <command> [args]`. Parser is a pure surface; logic lives in pipelines/."""
+"""L4 cli: pure argparse surface, UTF-8 stdout. Logic lives in pipelines/.
+
+The 21-command table in README.md is the contract (tests/test_docs keeps
+parser and README in sync). Commands whose domain module lands in a later
+milestone answer with an explicit not-implemented envelope.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +14,22 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from pipelines import canon, claims, common, idea, literature, runs, validate, zotero  # noqa: E402
+from pipelines import claims, papers, report, runs, search, store, validate  # noqa: E402
 
-
-def _dump(obj: object) -> int:
-    print(json.dumps(obj, ensure_ascii=False, indent=2))
-    return 0 if not (isinstance(obj, dict) and obj.get("error")) else 1
+NOT_IMPLEMENTED = {
+    "query-brief": "M2a",
+    "deepread-brief": "M2c",
+    "pdf-extract": "M2c",
+    "idea-brief": "M2f",
+    "idea-add": "M2f",
+    "publish": "M2h",
+    "feedback-add": "M2g",
+    "feedback-import-v1": "M1.5",
+    "zotero-manifest": "M2e",
+    "zotero-write": "M2e",
+    "zotero-readback": "M2e",
+    "backup-verify": "M2h",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,108 +38,128 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("session-brief", help="canon summary + run status + feedback triage")
-    sub.add_parser("status", help="runs overview")
-    sub.add_parser("validate", help="strict structural validation").add_argument(
-        "--strict", action="store_true"
-    )
-
-    s = sub.add_parser("run-start", help="start or resume a run")
+    s = sub.add_parser("run-start", help="start a run, or resume a partial one")
     s.add_argument("kind", choices=["weekly", "idea"])
     s.add_argument("run_id")
-    s.add_argument("--mode", default="")
-    s.add_argument("--force", action="store_true")
+    s.add_argument("--resume", action="store_true")
 
-    s = sub.add_parser("run-add-paper", help="single-writer paper registration")
-    s.add_argument("kind", choices=["weekly", "idea"])
+    s = sub.add_parser("run-finish", help="close a run: complete, partial, or absorb")
     s.add_argument("run_id")
-    s.add_argument("--payload", required=True, help="JSON object")
+    s.add_argument("--partial", metavar="GAP_NOTE")
+    s.add_argument("--absorb", metavar="GAP_NOTE")
 
-    s = sub.add_parser("run-prescreen", help="mechanized prescreen to SIDE ledger only")
-    s.add_argument("kind", choices=["weekly", "idea"])
-    s.add_argument("run_id")
-    s.add_argument("--items", required=True, help="JSON array")
+    sub.add_parser("session-brief", help="first screen: purpose, active runs, knowledge counts")
+    s = sub.add_parser("validate", help="structural validation")
+    s.add_argument("--strict", action="store_true")
 
-    s = sub.add_parser("run-reconcile", help="import side ledger via single writer")
-    s.add_argument("kind", choices=["weekly", "idea"])
-    s.add_argument("run_id")
-
-    s = sub.add_parser("run-finish", help="terminal close with hard gates")
-    s.add_argument("kind", choices=["weekly", "idea"])
-    s.add_argument("run_id")
-    s.add_argument("--supply-hold-reason", default="")
-
-    s = sub.add_parser("run-refreeze", help="audited reseal of a completed run")
-    s.add_argument("kind", choices=["weekly", "idea"])
-    s.add_argument("run_id")
-    s.add_argument("--reason", required=True)
-
-    s = sub.add_parser("search", help="full-recall pool search (selection upstream)")
+    s = sub.add_parser("search", help="recall pool over ACTIVE backends")
     s.add_argument("query")
     s.add_argument("--limit", type=int, default=15)
+    s.add_argument("--backend", action="append")
+    s.add_argument("--run", help="log the query into this run's query_log")
 
-    s = sub.add_parser("claim-add", help="append a claim to the hub")
-    s.add_argument("--claim", required=True, help="JSON object")
+    sub.add_parser("query-brief", help="multi-perspective query pack")
+    s = sub.add_parser("screen-rank", help="rule-based ranking + stop criterion")
+    s.add_argument("run_id")
 
-    s = sub.add_parser("idea-add", help="add a candidate to the pool")
-    s.add_argument("--candidate", required=True, help="JSON object")
+    s = sub.add_parser("paper-add", help="register a candidate into a run (gated)")
+    s.add_argument("run_id")
+    s.add_argument("--payload", required=True, help="JSON object")
+    s.add_argument("--pdf", help="archive PDF to the paper library (M2b)")
 
-    s = sub.add_parser(
-        "idea-feedback", help="record researcher verdict (the only validation signal)"
-    )
-    s.add_argument("--slug", required=True)
-    s.add_argument("--verdict", required=True, choices=["accept", "reject", "uncertain"])
-    s.add_argument("--reason", required=True)
+    sub.add_parser("deepread-brief", help="writer/verifier blind-separated pack")
+    sub.add_parser("pdf-extract", help="PDF text extraction (PyMuPDF first channel)")
 
-    sub.add_parser("idea-feedback-stats", help="feedback coverage stats")
-    sub.add_parser("zotero-queue", help="list staged import manifests")
+    s = sub.add_parser("claims-add", help="append a page-anchored claim (lint-gated)")
+    s.add_argument("--payload", required=True, help="JSON object")
+    s.add_argument("--run", help="append CLAIM_ADD trace to this run")
+    s = sub.add_parser("claims-view", help="render claims (filters optional)")
+    s.add_argument("--topic")
+    s.add_argument("--paper-key")
+    s.add_argument("--verdict", choices=["CONFIRMED", "DEVIATED", "NOT_FOUND"])
+
+    sub.add_parser("idea-brief", help="collision + lessons + attacks + novelty plan")
+    sub.add_parser("idea-add", help="validate and register an idea candidate")
+    sub.add_parser("publish", help="deliver the 4-file pack to the delivery root + mirror")
+
+    sub.add_parser("feedback-add", help="record researcher verdict (only validation signal)")
+    sub.add_parser("feedback-import-v1", help="backfill legacy verdicts from the delivery root")
+
+    sub.add_parser("zotero-manifest", help="stage manifest+SHA for audited write")
+    sub.add_parser("zotero-write", help="narrow write face (manifest-approved only)")
+    sub.add_parser("zotero-readback", help="read back and archive the write audit")
+    sub.add_parser("backup-verify", help="backup freshness + sampled restore check")
+
     return p
 
 
+def _emit(obj: object) -> int:
+    print(json.dumps(obj, ensure_ascii=False, indent=2))
+    if isinstance(obj, dict):
+        return 0 if obj.get("ok", True) else 1
+    return 0
+
+
+def _load_json_arg(raw: str, label: str) -> object | None:
+    try:
+        return json.loads(raw)
+    except ValueError:
+        print(json.dumps({"ok": False, "error": f"{label} is not valid JSON"}, ensure_ascii=False))
+        return None
+
+
 def main(argv: list[str] | None = None) -> int:
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, OSError):
+        pass
     args = build_parser().parse_args(argv)
     cmd = args.cmd
-    if cmd == "session-brief":
-        canon_doc = canon.load()
-        return _dump(
+
+    if cmd in NOT_IMPLEMENTED:
+        return _emit(
             {
-                "purpose": canon_doc.get("purpose"),
-                "weekly": runs.status("weekly"),
-                "ideas": runs.status("idea"),
-                "feedback": idea.feedback_stats(),
-                "zotero_queue": zotero.queued(),
+                "ok": False,
+                "error": f"not implemented yet; scheduled for {NOT_IMPLEMENTED[cmd]}",
+                "milestone": NOT_IMPLEMENTED[cmd],
             }
         )
-    if cmd == "status":
-        return _dump({"weekly": runs.status("weekly"), "ideas": runs.status("idea")})
-    if cmd == "validate":
-        errors = validate.validate_strict()
-        return _dump({"ok": not errors, "errors": errors})
+
     if cmd == "run-start":
-        return _dump(runs.start(args.kind, args.run_id, args.mode, args.force))
-    if cmd == "run-add-paper":
-        return _dump(runs.add_paper(args.kind, args.run_id, json.loads(args.payload)))
-    if cmd == "run-prescreen":
-        return _dump(runs.prescreen_append(args.kind, args.run_id, json.loads(args.items)))
-    if cmd == "run-reconcile":
-        return _dump(runs.reconcile(args.kind, args.run_id))
+        return _emit(runs.start(args.kind, args.run_id, args.resume))
     if cmd == "run-finish":
-        return _dump(runs.finish(args.kind, args.run_id, args.supply_hold_reason))
-    if cmd == "run-refreeze":
-        return _dump(runs.refreeze(args.kind, args.run_id, args.reason))
+        return _emit(runs.finish(args.run_id, args.partial, args.absorb))
+    if cmd == "session-brief":
+        return _emit(report.session_brief())
+    if cmd == "validate":
+        return _emit(validate.validate(args.strict))
     if cmd == "search":
-        common.ensure_ssl_cert_env()
-        return _dump(literature.search(args.query, args.limit))
-    if cmd == "claim-add":
-        return _dump(claims.append_claim(json.loads(args.claim)))
-    if cmd == "idea-add":
-        return _dump(idea.add_candidate(json.loads(args.candidate)))
-    if cmd == "idea-feedback":
-        return _dump(idea.record_feedback(args.slug, args.verdict, args.reason))
-    if cmd == "idea-feedback-stats":
-        return _dump(idea.feedback_stats())
-    if cmd == "zotero-queue":
-        return _dump({"queued": zotero.queued()})
+        result = search.search(args.query, args.limit, args.backend)
+        if result.get("ok") and args.run:
+            run = runs.load(args.run)
+            if run is None or run.status != "active":
+                result["run_log"] = f"run not active, query not logged: {args.run}"
+            else:
+                run.query_log.append(
+                    {"query": args.query, "backend": ",".join(args.backend or ["active"]), "at": store.now()}
+                )
+                runs.append_trace(run, "SEARCH", args.query)
+                runs.save(run)
+        return _emit(result)
+    if cmd == "screen-rank":
+        return _emit(papers.screen_rank(args.run_id))
+    if cmd == "paper-add":
+        payload = _load_json_arg(args.payload, "--payload")
+        if payload is None:
+            return 1
+        return _emit(papers.add_paper(args.run_id, payload, args.pdf))
+    if cmd == "claims-add":
+        payload = _load_json_arg(args.payload, "--payload")
+        if payload is None:
+            return 1
+        return _emit(claims.add_claim(payload, args.run))
+    if cmd == "claims-view":
+        return _emit(claims.view(args.topic, args.paper_key, args.verdict))
     return 1
 
 
