@@ -58,4 +58,4 @@ L4 cli.py         纯 argparse 表面，21 命令
 
 ## 环境事实
 
-见 `docs/ENVIRONMENT.md`（M1.3 落盘：PS 吞 stdout / 代理假 502 / SSL certifi / MinerU 冷启动 / GUI 寿命 / safe-delete）。
+沙箱实测 6 条见 `docs/ENVIRONMENT.md`：PS 吞 stdout / 代理假 502 / SSL certifi / MinerU 冷启动≥120s / GUI 寿命 / safe-delete；网络与证书应对已内置在 `pipelines/search.py`。
