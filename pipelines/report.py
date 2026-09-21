@@ -75,6 +75,8 @@ def _lessons() -> list[dict[str, Any]]:
 
 def _todos(coverage: dict[str, Any], knowledge: dict[str, int]) -> list[str]:
     pending: list[str] = []
+    if coverage.get("bootstrap"):
+        pending.append("fresh ledger: first researcher verdicts will arm the supply gate")
     if coverage["pending"]:
         pending.append(
             f"backfill {coverage['pending']} researcher verdicts "

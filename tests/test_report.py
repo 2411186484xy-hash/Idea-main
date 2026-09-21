@@ -20,9 +20,10 @@ def test_session_brief_cold_and_active(frozen_clock):
 
 def test_session_brief_four_blocks(frozen_clock):
     cold = report.session_brief()
-    assert cold["coverage"]["total"] == 0 and not cold["coverage"]["supply_open"]
+    assert cold["coverage"]["total"] == 0 and cold["coverage"]["supply_open"]
     assert cold["lessons"] == []
     assert any("knowledge empty" in todo for todo in cold["todos"])
+    assert any("fresh ledger" in todo for todo in cold["todos"])
     feedback.add_feedback("v1-a", "accept", "confirmed")
     warm = report.session_brief()
     assert warm["coverage"]["decided"] == 1 and warm["coverage"]["supply_open"]

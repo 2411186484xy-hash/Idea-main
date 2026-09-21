@@ -34,9 +34,10 @@ def test_reject_feeds_failure_ledger(frozen_clock):
     assert ledger[0]["stage"] == "verdict" and ledger[0]["lesson"] == "prior work exists"
 
 
-def test_supply_gate_opens_only_with_backfill(frozen_clock):
-    assert not feedback.stats()["supply_open"]
-    assert not feedback.check_supply()["open"]
+def test_supply_gate_first_boot_then_ratio(frozen_clock):
+    cold = feedback.stats()
+    assert cold["bootstrap"] and cold["supply_open"]
+    assert feedback.check_supply()["open"]
     feedback.add_feedback("v1-a", "uncertain", "pending researcher")
     assert not feedback.check_supply()["open"]
     feedback.add_feedback("v1-b", "accept", "confirmed by researcher")

@@ -69,6 +69,7 @@ def stats() -> dict[str, Any]:
     decided = counts["accept"] + counts["reject"]
     threshold = float(canon.value("quotas.feedback_coverage_min"))
     ratio = decided / total if total else 0.0
+    bootstrap = total == 0
     return {
         "total": total,
         "verdict_counts": counts,
@@ -76,13 +77,19 @@ def stats() -> dict[str, Any]:
         "pending": counts["uncertain"],
         "ratio": round(ratio, 4),
         "threshold": threshold,
-        "supply_open": bool(total) and ratio >= threshold,
+        # Fresh-start bootstrap: with no history there is nothing unprocessed,
+        # so the gate's purpose is vacuous and supply opens. The first verdict
+        # row arms the ratio rule; gaming it needs a git-visible ledger wipe.
+        "bootstrap": bootstrap,
+        "supply_open": bootstrap or ratio >= threshold,
     }
 
 
 def check_supply() -> dict[str, Any]:
     """Supply gate for idea-add: closed until researcher backfill arrives."""
     current = stats()
+    if current["bootstrap"]:
+        return {"open": True, "reason": "fresh ledger, no history to backfill (first-boot)"}
     if current["supply_open"]:
         return {
             "open": True,
