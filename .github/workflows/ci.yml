@@ -9,7 +9,11 @@ permissions:
 
 jobs:
   governance:
-    runs-on: ubuntu-latest
+    # Windows-only by design: canon identity roots (E:\Idea, E:\Paper, ...)
+    # are absolute paths only on Windows, so POSIX runners fail
+    # check_identity_sync and the cold-start test. Ubuntu grep is
+    # unavailable here, hence the pwsh Select-String scan below.
+    runs-on: windows-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -26,10 +30,13 @@ jobs:
       - name: Ruff
         run: ruff check .
       - name: "Drive-letter scan (E:/C: roots live in canon, never in code)"
+        shell: pwsh
         run: |
-          if grep -rPn '(?<![A-Za-z0-9])[A-Za-z]:[\\/]' --include='*.py' pipelines cli.py; then
-            echo "hardcoded drive letter found outside canon"
+          $hits = Select-String -Path pipelines/*.py,cli.py -Pattern '(?<![A-Za-z0-9])[A-Za-z]:[\\/]'
+          if ($hits) {
+            $hits | ForEach-Object { Write-Output "$($_.Filename):$($_.LineNumber): $($_.Line)" }
+            Write-Output "hardcoded drive letter found outside canon"
             exit 1
-          fi
+          }
       - name: README command-table consistency
         run: python -m pytest tests/test_docs.py -q
