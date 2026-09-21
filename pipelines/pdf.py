@@ -68,13 +68,27 @@ def extract(path_str: str, max_pages: int = 0) -> dict[str, Any]:
         limit = total if not max_pages or max_pages <= 0 else min(total, max_pages)
         for n in range(limit):
             try:
-                text = doc.load_page(n).get_text("text") or ""
+                page = doc.load_page(n)
+                text = page.get_text("text") or ""
             except Exception as exc:
                 pages.append({"page_no": n + 1, "raw_text": "",
-                              "errors": [f"{type(exc).__name__}: {exc}"]})
+                              "errors": [f"{type(exc).__name__}: {exc}"], "needs_ocr": False})
                 continue
+            if text.strip():
+                pages.append({"page_no": n + 1, "raw_text": text,
+                              "errors": [], "needs_ocr": False})
+                continue
+            try:
+                has_images = bool(page.get_images())
+            except Exception:
+                has_images = False
             pages.append({"page_no": n + 1, "raw_text": text,
-                          "errors": [] if text.strip() else ["empty-text"]})
+                          "errors": ["empty-text"], "needs_ocr": has_images})
+        try:
+            info = dict(doc.metadata or {})
+        except Exception:
+            info = {}
+        meta = {k: str(info.get(k) or "") for k in ("title", "author")}
     finally:
         try:
             doc.close()
@@ -83,5 +97,7 @@ def extract(path_str: str, max_pages: int = 0) -> dict[str, Any]:
     text_md = "".join(f"\n\n--- p{p['page_no']} ---\n{p['raw_text']}" for p in pages)
     return {"ok": True, "path": str(path), "pages": len(pages),
             "chars": sum(len(p["raw_text"]) for p in pages),
+            "needs_ocr_pages": sum(1 for p in pages if p["needs_ocr"]),
+            "meta": meta,
             "text_md": text_md, "page_list": pages,
             "fallback_chain": ["pymupdf-text"] + fallback, "errors": []}
