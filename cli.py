@@ -73,7 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("paper-add", help="register a candidate into a run (gated)")
     s.add_argument("run_id")
     s.add_argument("--payload", required=True, help="JSON object")
-    s.add_argument("--pdf", help="archive PDF to the paper library (M2b)")
+    s.add_argument("--pdf", help="archive PDF to the paper library + mirror")
 
     sub.add_parser("deepread-brief", help="writer/verifier blind-separated pack")
     sub.add_parser("pdf-extract", help="PDF text extraction (PyMuPDF first channel)")

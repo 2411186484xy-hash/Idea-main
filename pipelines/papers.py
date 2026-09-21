@@ -8,6 +8,8 @@ hint; selection judgement stays with the session model.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Any
 
 from . import canon, contracts, runs, store
@@ -17,10 +19,39 @@ def _fail(error: str, **extra: Any) -> dict[str, Any]:
     return {"ok": False, "error": error, **extra}
 
 
+def _safe_dirname(paper_key: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", paper_key).strip("_") or "paper"
+
+
+def archive_pdf(paper_key: str, src: str) -> dict[str, Any]:
+    """M2b: library archive + backup mirror with SHA agreement (paper-add owns it).
+
+    Layout (user-ruled): <paper_root>/library/<paper_key>/ + mirror under
+    <paper_mirror_root>/library/<paper_key>/. Forbidden source roots are
+    refused before any byte moves.
+    """
+    if canon.is_forbidden(src):
+        return _fail(f"pdf source inside a forbidden root: {src}")
+    origin = Path(src)
+    if not origin.is_file():
+        return _fail(f"pdf not found: {src}")
+    leaf = _safe_dirname(paper_key)
+    dst = canon.paper_root() / "library" / leaf / origin.name
+    mirror = canon.paper_mirror_root() / "library" / leaf / origin.name
+    try:
+        store.copy_file(origin, dst)
+        store.copy_file(dst, mirror)
+    except OSError as exc:
+        return _fail(f"pdf archive failed: {exc}")
+    sha, mirror_sha = store.sha256_file(dst), store.sha256_file(mirror)
+    if sha != mirror_sha:
+        return _fail(f"mirror SHA mismatch for {paper_key}: {sha[:12]} != {mirror_sha[:12]}")
+    return {"ok": True, "paper_key": paper_key, "library": str(dst),
+            "mirror": str(mirror), "sha256": sha, "sha_match": True}
+
+
 def add_paper(run_id: str, payload: dict[str, Any], pdf: str | None = None) -> dict[str, Any]:
     """The only writer of run.paper_candidates (single-writer rule)."""
-    if pdf:
-        return _fail("paper-add --pdf archiving lands in M2b (library + mirror)")
     run = runs.load(run_id)
     if run is None:
         return _fail(f"run not found: {run_id}")
@@ -39,12 +70,21 @@ def add_paper(run_id: str, payload: dict[str, Any], pdf: str | None = None) -> d
         )
     if any(c.paper_key == cand.paper_key for c in run.paper_candidates):
         return _fail(f"duplicate paper_key in run: {cand.paper_key}", paper_key=cand.paper_key)
+    archived: dict[str, Any] | None = None
+    if pdf:
+        archived = archive_pdf(cand.paper_key, pdf)
+        if not archived["ok"]:
+            return archived
     cand.screen_status = "pending"
     run.paper_candidates.append(cand)
     run.coverage[cand.discovery_class] = run.coverage.get(cand.discovery_class, 0) + 1
     runs.append_trace(run, "PAPER_ADD", cand.paper_key)
     runs.save(run)
-    return {"ok": True, "paper_key": cand.paper_key, "count": len(run.paper_candidates)}
+    out: dict[str, Any] = {"ok": True, "paper_key": cand.paper_key,
+                           "count": len(run.paper_candidates)}
+    if archived:
+        out["archive"] = archived
+    return out
 
 
 def _score(cand: contracts.PaperCandidate, current_year: int) -> int:

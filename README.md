@@ -21,10 +21,10 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 | `run-finish` | 收口：默认完成删除；`--partial` 留档可续；`--absorb` 放弃收口 | M0 |
 | `session-brief` | 首屏四块：coverage + 活跃 run + 教训摘要 + 待办 | M1.6 |
 | `validate` | 结构校验（canon 同步/悬挂 run/账本完整性）；`--strict` 警告也算失败 | M0 |
-| `search` | ACTIVE 后端召回池（OpenAlex+arXiv）；`--run` 记 query_log | M0 |
+| `search` | ACTIVE 四通道召回池；`--run` 记 query_log | M0+M2a |
 | `query-brief` | 多视角查询任务包 + 查询去重 | M2a |
 | `screen-rank` | 规则版排序 + 停止准则（提示性，判断归会话模型） | M0 |
-| `paper-add` | 候选入 run（标识符/撤稿硬门）；`--pdf` 归档 E:\Paper | M0（--pdf 为 M2b） |
+| `paper-add` | 候选入 run（标识符/撤稿硬门）；`--pdf` 归档 library + 镜像 | M0+M2b |
 | `deepread-brief` | writer/verifier 盲分离双书任务包 | M2c |
 | `pdf-extract` | PDF 文本层提取（PyMuPDF 第一通道，MinerU 探针降级） | M2c |
 | `claims-add` | 追加页锚定 claim（quote 逐字 + page_anchor 硬门） | M0 |

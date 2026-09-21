@@ -45,10 +45,41 @@ def test_retraction_veto(frozen_clock):
     assert run.paper_candidates == []
 
 
-def test_pdf_flag_deferred(frozen_clock):
+def test_pdf_archive_mirrors_with_sha(frozen_clock, tmp_path):
     runs.start("weekly", RUN)
-    result = papers.add_paper(RUN, _payload(), pdf="some.pdf")
-    assert not result["ok"] and "M2b" in result["error"]
+    src = tmp_path / "paper.pdf"
+    src.write_bytes(b"%PDF-1.4 fake body")
+    result = papers.add_paper(RUN, _payload(), pdf=str(src))
+    assert result["ok"] and result["archive"]["sha_match"] is True
+    from pipelines import canon, store
+
+    lib = canon.paper_root() / "library" / "doi_10.1_x" / "paper.pdf"
+    mirror = canon.paper_mirror_root() / "library" / "doi_10.1_x" / "paper.pdf"
+    assert lib.is_file() and mirror.is_file()
+    assert store.sha256_file(lib) == store.sha256_file(mirror)
+    dup = papers.add_paper(RUN, _payload(), pdf=str(src))
+    assert not dup["ok"] and "duplicate" in dup["error"]
+
+
+def test_pdf_archive_refuses_forbidden_and_missing(frozen_clock):
+    runs.start("weekly", RUN)
+    assert not papers.add_paper(RUN, _payload(), pdf="nope.pdf")["ok"]
+    hit = papers.add_paper(RUN, _payload(), pdf="E:\\Project\\x.pdf")
+    assert not hit["ok"] and "forbidden" in hit["error"]
+    assert runs.load(RUN).paper_candidates == []
+
+
+def test_screen_rank_stable_over_twenty(frozen_clock):
+    runs.start("weekly", RUN)
+    for i in range(20):
+        cited = 500 - i * 23
+        assert papers.add_paper(RUN, _payload(
+            identifiers={"doi": f"10.1/p{i:02d}"}, cited_by_count=cited,
+            year=2026 if i % 3 == 0 else 2010))["ok"]
+    first = [r["paper_key"] for r in papers.screen_rank(RUN)["ranked"]]
+    second = [r["paper_key"] for r in papers.screen_rank(RUN)["ranked"]]
+    assert first == second and len(first) == 20
+    assert first[0] == "doi:10.1/p00"
 
 
 def test_screen_rank_orders_and_stops(frozen_clock):

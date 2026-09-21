@@ -183,6 +183,27 @@ def delete_tree(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=False)
 
 
+def copy_file(src: Path, dst: Path) -> None:
+    """Crash-safe copy (tmp + os.replace); the only copy primitive in the repo."""
+    import shutil
+
+    ensure_dir(dst.parent)
+    tmp = dst.with_name(dst.name + ".tmp")
+    shutil.copyfile(src, tmp)
+    os.replace(tmp, dst)
+
+
+def sha256_file(path: Path) -> str:
+    """Content hash for archive/mirror integrity checks."""
+    import hashlib
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def dir_exists(path: Path) -> bool:
     return path.is_dir()
 
