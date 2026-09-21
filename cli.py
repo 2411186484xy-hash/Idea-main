@@ -29,9 +29,6 @@ from pipelines import (  # noqa: E402
 NOT_IMPLEMENTED = {
     "idea-brief": "M2f",
     "publish": "M2h",
-    "zotero-manifest": "M2e",
-    "zotero-write": "M2e",
-    "zotero-readback": "M2e",
     "backup-verify": "M2h",
 }
 
@@ -103,9 +100,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--run", help="append FEEDBACK trace to this run")
     sub.add_parser("feedback-import-v1", help="backfill legacy verdicts from the delivery root")
 
-    sub.add_parser("zotero-manifest", help="stage manifest+SHA for audited write")
-    sub.add_parser("zotero-write", help="narrow write face (manifest-approved only)")
-    sub.add_parser("zotero-readback", help="read back and archive the write audit")
+    s = sub.add_parser("zotero-manifest", help="stage manifest+SHA for audited write")
+    s.add_argument("--run", required=True)
+    s = sub.add_parser("zotero-write", help="narrow write face (manifest-approved only)")
+    s.add_argument("--manifest", required=True)
+    s.add_argument("--dump", required=True, help="JSON list file of the in-session write result")
+    s = sub.add_parser("zotero-readback", help="read back and archive the write audit")
+    s.add_argument("--manifest", required=True)
     sub.add_parser("backup-verify", help="backup freshness + sampled restore check")
 
     return p
@@ -209,6 +210,18 @@ def main(argv: list[str] | None = None) -> int:
         return _emit(feedback.add_feedback(args.slug, args.verdict, args.reason, args.run))
     if cmd == "feedback-import-v1":
         return _emit(feedback.import_v1())
+    if cmd == "zotero-manifest":
+        from pipelines import zotero
+
+        return _emit(zotero.build_manifest(args.run))
+    if cmd == "zotero-write":
+        from pipelines import zotero
+
+        return _emit(zotero.verify_write(args.manifest, args.dump))
+    if cmd == "zotero-readback":
+        from pipelines import zotero
+
+        return _emit(zotero.readback(args.manifest))
     return 1
 
 

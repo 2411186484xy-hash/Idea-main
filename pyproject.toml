@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-zotero = ["pyzotero>=1.15.1"]
+zotero = ["pyzotero>=1.13.4"]  # urschrei/pyzotero (BlueOak-1.0.0); session-side write face only
 pdf = ["pymupdf>=1.28.2"]
 
 [dependency-groups]
