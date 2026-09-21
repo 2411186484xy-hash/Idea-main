@@ -40,6 +40,11 @@ def add_feedback(
     except (ValueError, TypeError) as exc:
         return _fail(f"feedback rejected: {exc}")
     store.append_jsonl(store.feedback_path(), store.to_dict(entry))
+    if verdict == "reject":
+        lesson = contracts.FailureEntry(slug=entry.slug, stage="verdict",
+                                        reason=entry.reason, lesson=entry.reason,
+                                        at=entry.at)
+        store.append_jsonl(store.failure_ledger_path(), store.to_dict(lesson))
     if run_id:
         run = runs.load(run_id)
         if run is not None and run.status == "active":

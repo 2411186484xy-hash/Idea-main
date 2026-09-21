@@ -23,6 +23,17 @@ def test_add_feedback_traces_run(frozen_clock):
     assert runs.load("WEEKLYRUN-20260921-120000").trace[-1]["event"] == "FEEDBACK"
 
 
+def test_reject_feeds_failure_ledger(frozen_clock):
+    from pipelines import store
+
+    feedback.add_feedback("doomed-idea", "accept", "solid evidence")
+    assert store.read_jsonl(store.failure_ledger_path()) == []
+    feedback.add_feedback("doomed-idea", "reject", "prior work exists")
+    ledger = store.read_jsonl(store.failure_ledger_path())
+    assert len(ledger) == 1 and ledger[0]["slug"] == "doomed-idea"
+    assert ledger[0]["stage"] == "verdict" and ledger[0]["lesson"] == "prior work exists"
+
+
 def test_supply_gate_opens_only_with_backfill(frozen_clock):
     assert not feedback.stats()["supply_open"]
     assert not feedback.check_supply()["open"]
