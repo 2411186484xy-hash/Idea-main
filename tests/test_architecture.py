@@ -146,7 +146,7 @@ def test_line_budgets():
 @pytest.mark.parametrize("name", sorted(LAYER))
 def test_expected_modules_exist_or_scheduled(name):
     """M0 modules must exist; M2 modules may land later (this pins the map)."""
-    scheduled_m2 = {"idea", "feedback", "zotero", "pdf"}
+    scheduled_m2 = {"zotero", "pdf"}
     if name in scheduled_m2:
         return
     assert name in _modules(), f"missing M0 module: pipelines/{name}.py"

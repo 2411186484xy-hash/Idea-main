@@ -14,17 +14,24 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from pipelines import claims, papers, report, runs, search, store, validate  # noqa: E402
+from pipelines import (  # noqa: E402
+    claims,
+    feedback,
+    idea,
+    papers,
+    report,
+    runs,
+    search,
+    store,
+    validate,
+)
 
 NOT_IMPLEMENTED = {
     "query-brief": "M2a",
     "deepread-brief": "M2c",
     "pdf-extract": "M2c",
     "idea-brief": "M2f",
-    "idea-add": "M2f",
     "publish": "M2h",
-    "feedback-add": "M2g",
-    "feedback-import-v1": "M1.5",
     "zotero-manifest": "M2e",
     "zotero-write": "M2e",
     "zotero-readback": "M2e",
@@ -79,10 +86,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--verdict", choices=["CONFIRMED", "DEVIATED", "NOT_FOUND"])
 
     sub.add_parser("idea-brief", help="collision + lessons + attacks + novelty plan")
-    sub.add_parser("idea-add", help="validate and register an idea candidate")
+    s = sub.add_parser("idea-add", help="supply-gated idea registration (full brief in M2f)")
+    s.add_argument("--payload", required=True, help="JSON object")
+    s.add_argument("--run", help="append IDEA_ADD trace to this run")
     sub.add_parser("publish", help="deliver the 4-file pack to the delivery root + mirror")
 
-    sub.add_parser("feedback-add", help="record researcher verdict (only validation signal)")
+    s = sub.add_parser("feedback-add", help="record researcher verdict (only validation signal)")
+    s.add_argument("slug")
+    s.add_argument("--verdict", required=True, choices=["accept", "reject", "uncertain"])
+    s.add_argument("--reason", required=True)
+    s.add_argument("--run", help="append FEEDBACK trace to this run")
     sub.add_parser("feedback-import-v1", help="backfill legacy verdicts from the delivery root")
 
     sub.add_parser("zotero-manifest", help="stage manifest+SHA for audited write")
@@ -160,6 +173,23 @@ def main(argv: list[str] | None = None) -> int:
         return _emit(claims.add_claim(payload, args.run))
     if cmd == "claims-view":
         return _emit(claims.view(args.topic, args.paper_key, args.verdict))
+    if cmd == "idea-add":
+        payload = _load_json_arg(args.payload, "--payload")
+        if payload is None:
+            return 1
+        if not isinstance(payload, dict):
+            return _emit({"ok": False, "error": "--payload must be a JSON object"})
+        gate = feedback.check_supply()
+        if not gate["open"]:
+            return _emit({"ok": False, "error": gate["reason"], "gate": "feedback_coverage"})
+        result = idea.add_idea(payload, args.run)
+        if result.get("ok"):
+            result["supply"] = gate["reason"]
+        return _emit(result)
+    if cmd == "feedback-add":
+        return _emit(feedback.add_feedback(args.slug, args.verdict, args.reason, args.run))
+    if cmd == "feedback-import-v1":
+        return _emit(feedback.import_v1())
     return 1
 
 

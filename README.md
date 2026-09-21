@@ -30,10 +30,10 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 | `claims-add` | 追加页锚定 claim（quote 逐字 + page_anchor 硬门） | M0 |
 | `claims-view` | claims 即席渲染（过滤；矛盾对为 M2d） | M0 |
 | `idea-brief` | 碰撞三要素 + 教训注入 + 6 攻击 + 查新计划（四合一） | M2f |
-| `idea-add` | 校验并登记 idea 候选（corpus gate 3+1+1） | M2f |
+| `idea-add` | 供给门禁：coverage 未达阈值硬拦；过门后登记候选（M2f 完整孵化） | M1 门禁，M2f 完整 |
 | `publish` | 交付 4 件套到 E:\Idea + 镜像 E:\Backup\Idea + pool 除名 | M2h |
-| `feedback-add` | 研究者 verdict 回填（唯一验证信号） | M2g |
-| `feedback-import-v1` | 回填 E:\Idea 存量 29 条 verdict | M1.5 |
+| `feedback-add` | 研究者 verdict 回填（verdict+reason 必填，供给门输入） | M1.5 |
+| `feedback-import-v1` | 回填 E:\Idea 存量 29 条 verdict（只读扫描，28 待回填） | M1.5 |
 | `zotero-manifest` | 三段式第一步：manifest+SHA 暂存 | M2e |
 | `zotero-write` | 窄写面：仅 manifest 批准条目 | M2e |
 | `zotero-readback` | 回读审计并归档（行业空白能力） | M2e |
