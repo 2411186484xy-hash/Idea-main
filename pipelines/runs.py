@@ -124,6 +124,16 @@ def finish(
     gap_note = absorb_note.strip() if absorb_note and absorb_note.strip() else None
     if gap_note:
         run.uncertainty_disclosure.append(f"absorbed gap: {gap_note}")
+    # L2 quota dual channel (canon quotas.l2_per_run): the complete channel never
+    # blocks on quota (V1 G3.2: quotas are soft); a shortfall is disclosed, while
+    # the partial channel carries an explicit gap note instead.
+    quota_min = int(list(canon.value("quotas.l2_per_run"))[0])
+    quota_gap = max(0, quota_min - len(run.paper_candidates))
+    if quota_gap:
+        run.uncertainty_disclosure.append(
+            f"quota gap: {len(run.paper_candidates)}/{quota_min} L2 "
+            "(soft: completed below canon quotas.l2_per_run floor)"
+        )
     run.status = "completed"
     run.completed_at = store.now()
     summary = {
@@ -136,6 +146,8 @@ def finish(
     }
     if gap_note:
         summary["gap_note"] = gap_note
+    if quota_gap:
+        summary["quota_gap"] = quota_gap
     store.append_jsonl(store.session_log_path(), summary)
     store.delete_tree(store.run_dir(run_id))
     return {"ok": True, "run_id": run_id, **{k: v for k, v in summary.items() if k != "at"}}

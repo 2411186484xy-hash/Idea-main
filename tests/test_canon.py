@@ -46,3 +46,11 @@ def test_forbidden_roots_guard():
 
 def test_check_identity_sync_clean():
     assert canon.check_identity_sync() == []
+
+
+def test_l2_quota_dual_channel_pair():
+    assert list(canon.value("quotas.l2_per_run")) == [10, 15]
+
+
+def test_feedback_coverage_threshold():
+    assert float(canon.value("quotas.feedback_coverage_min")) == 0.5

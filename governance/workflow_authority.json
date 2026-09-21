@@ -69,7 +69,11 @@
   "quotas": {
     "l2_per_run": {
       "value": [10, 15],
-      "why": "V1 实证 L2 配额区间（canon DEC 继承）"
+      "why": "V1实证L2配额区间（V1-RETROSPECTIVE deep_read.l2.quota_per_run）；V2双通道：complete通道未达下限软放行并记gap（V1-RETROSPECTIVE G3.3门禁可豁免留痕），partial通道以gap_note显式豁免（PITFALL-REVIEW C档：L2配额hard拒收改hard+partial双通道）"
+    },
+    "feedback_coverage_min": {
+      "value": 0.5,
+      "why": "V1-RETROSPECTIVE G3.6：coverage<50%时不得新增候选；V1 41天未闭环反馈、供给不受约束是根因之一（FINAL-REPORT：反馈覆盖率首屏，低覆盖禁扩供给）"
     },
     "screen_stop_n": {
       "value": 5,
@@ -77,7 +81,7 @@
     },
     "screen_stop_score": {
       "value": 2,
-      "why": "规则版排序的低分阈值；排序只是提示，判断归会话模型"
+      "why": "asreview 3,788★ 停止准则配套低分界定（GITHUB-SURVEY 锚）；仅排序提示不拦，判断归会话模型"
     }
   },
   "limits": {

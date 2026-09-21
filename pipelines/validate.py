@@ -17,6 +17,8 @@ def _check_canon(errors: list[str]) -> None:
         problems = canon.check_identity_sync()
         canon.value("search.active")
         canon.value("coverage.routes")
+        canon.value("quotas.l2_per_run")
+        canon.value("quotas.feedback_coverage_min")
         canon.value("limits.stale_hours")
     except canon.CanonError as exc:
         errors.append(f"canon anchor missing: {exc}")

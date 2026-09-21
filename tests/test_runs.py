@@ -113,3 +113,27 @@ def test_bad_run_id_rejected(frozen_clock):
 def test_kind_prefix_mismatch_rejected(frozen_clock):
     result = runs.start("weekly", "IDEARUN-20260921-120000")
     assert not result["ok"] and "prefix/kind" in result["error"]
+
+
+def test_finish_below_quota_soft_discloses_gap(frozen_clock):
+    """Complete channel never blocks on quota (soft); the gap is disclosed."""
+    runs.start("weekly", RUN)
+    result = runs.finish(RUN)
+    assert result["ok"] and result["quota_gap"] == 10
+
+
+def test_finish_meeting_quota_has_no_gap(frozen_clock):
+    from pipelines import papers
+
+    runs.start("weekly", RUN)
+    for i in range(10):
+        payload = {
+            "title": f"T{i}",
+            "identifiers": {"doi": f"10.1/x{i}"},
+            "source_backend": "openalex",
+            "abstract": "a",
+            "abstract_sha256": "0" * 64,
+        }
+        assert papers.add_paper(RUN, payload)["ok"]
+    result = runs.finish(RUN)
+    assert result["ok"] and "quota_gap" not in result
