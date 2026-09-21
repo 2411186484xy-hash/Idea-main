@@ -1,11 +1,9 @@
-"""L2 idea: candidate registration behind the feedback supply gate (M1).
+"""L2 idea: incubation gates + registration (M2f full scope).
 
-M1 scope is the gate: coverage below the canon threshold hard-refuses
-idea-add (V1-RETROSPECTIVE G3.6). The gate function lives in feedback.py
-(check_supply) and the L4 CLI calls it before touching the pool, so this
-module keeps its single-writer shape with no horizontal imports. Full
-incubation (corpus gate 3+1+1, failure-lesson pre-read warn, novelty plan)
-lands in M2f; idea-pool.json holds in-flight candidates only.
+Corpus gate 3+1+1 (>=3 corpus-claim refs + >=1 novelty check + the 6-attack
+set the contract enforces); failure-ledger pre-read is a warn-block (pass
+--lessons-read after running idea-brief); quality dims scoring <=2 mark hold
+dims that publish will refuse. idea-pool.json holds in-flight candidates only.
 """
 
 from __future__ import annotations
@@ -19,12 +17,20 @@ def _fail(error: str, **extra: Any) -> dict[str, Any]:
     return {"ok": False, "error": error, **extra}
 
 
-def add_idea(payload: dict[str, Any], run_id: str | None = None) -> dict[str, Any]:
-    """Schema validation, then pool append (the CLI enforces the supply gate)."""
+def add_idea(payload: dict[str, Any], run_id: str | None = None,
+           lessons_read: bool = False) -> dict[str, Any]:
+    """Schema + corpus-gate validation, then pool append (CLI gates supply first)."""
+    if not lessons_read:
+        return _fail("lesson gate: run idea-brief first, then re-add with --lessons-read")
     try:
         idea = contracts.IdeaCandidate(**payload)
     except (ValueError, TypeError) as exc:
         return _fail(f"idea rejected: {exc}")
+    corpus_refs = [r for r in idea.evidence_refs if str(r).startswith("CLM-")]
+    if len(corpus_refs) < 3:
+        return _fail(f"corpus gate 3+1+1: need >=3 corpus-claim refs, got {len(corpus_refs)}")
+    if not idea.novelty_log:
+        return _fail("corpus gate 3+1+1: novelty_log needs >=1 executed novelty check")
     pool_path = store.idea_pool_path()
     pool: list[Any] = store.read_json(pool_path) if pool_path.exists() else []
     if not isinstance(pool, list):
@@ -38,4 +44,10 @@ def add_idea(payload: dict[str, Any], run_id: str | None = None) -> dict[str, An
         if run is not None and run.status == "active":
             runs.append_trace(run, "IDEA_ADD", idea.slug)
             runs.save(run)
-    return {"ok": True, "slug": idea.slug}
+    hold_dims = sorted(d for d, card in idea.quality_card.items()
+                       if int(card.get("score", 5)) <= 2)
+    out: dict[str, Any] = {"ok": True, "slug": idea.slug}
+    if hold_dims:
+        out["hold"] = {"dims": hold_dims,
+                       "note": "publish refuses hold dims until revised"}
+    return out

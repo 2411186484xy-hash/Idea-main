@@ -27,7 +27,6 @@ from pipelines import (  # noqa: E402
 )
 
 NOT_IMPLEMENTED = {
-    "idea-brief": "M2f",
     "publish": "M2h",
     "backup-verify": "M2h",
 }
@@ -87,10 +86,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--verdict", choices=["CONFIRMED", "DEVIATED", "NOT_FOUND"])
     s.add_argument("--pairs-only", action="store_true", help="only pairs and the claims in them")
 
-    sub.add_parser("idea-brief", help="collision + lessons + attacks + novelty plan")
+    s = sub.add_parser("idea-brief", help="collision + lessons + attacks + novelty plan")
+    s.add_argument("--seed", required=True)
+    s.add_argument("--source", required=True)
+    s.add_argument("--target", required=True)
     s = sub.add_parser("idea-add", help="supply-gated idea registration (full brief in M2f)")
     s.add_argument("--payload", required=True, help="JSON object")
     s.add_argument("--run", help="append IDEA_ADD trace to this run")
+    s.add_argument("--lessons-read", action="store_true",
+                   help="confirm idea-brief lessons were read")
     sub.add_parser("publish", help="deliver the 4-file pack to the delivery root + mirror")
 
     s = sub.add_parser("feedback-add", help="record researcher verdict (only validation signal)")
@@ -193,6 +197,8 @@ def main(argv: list[str] | None = None) -> int:
         return _emit(claims.add_claim(payload, args.run))
     if cmd == "claims-view":
         return _emit(claims.view(args.topic, args.paper_key, args.verdict, args.pairs_only))
+    if cmd == "idea-brief":
+        return _emit(report.idea_brief(args.seed, args.source, args.target))
     if cmd == "idea-add":
         payload = _load_json_arg(args.payload, "--payload")
         if payload is None:
@@ -202,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
         gate = feedback.check_supply()
         if not gate["open"]:
             return _emit({"ok": False, "error": gate["reason"], "gate": "feedback_coverage"})
-        result = idea.add_idea(payload, args.run)
+        result = idea.add_idea(payload, args.run, lessons_read=args.lessons_read)
         if result.get("ok"):
             result["supply"] = gate["reason"]
         return _emit(result)

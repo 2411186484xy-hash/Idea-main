@@ -21,6 +21,15 @@ _QUERY_ROUTES = (
     ("frontier", " frontier OR emerging OR review"),
 )
 
+_ATTACKS = (
+    "rename-swap: draw the difference table against the nearest three priors; no delta row holds the idea",
+    "shallow-combo: write the coupling mechanism plus an ablation control, or hold",
+    "no-disproof: name the fastest falsifying experiment with controls and thresholds",
+    "lineage-gap: cite the key prior work or drop the novelty claim",
+    "open-prescription: ship data sources, controls, and decision numbers, not directions",
+    "venue-fit: name the venue and its bar, or hold",
+)
+
 
 def query_brief(base: str, run_id: str | None = None) -> dict[str, Any]:
     """M2a: mechanical multi-perspective pack + query_log dedup flags (pure read)."""
@@ -123,3 +132,20 @@ def deepread_brief(paper_key: str, text_md: str) -> dict[str, Any]:
                 "claims_to_check": [], "sees_writer_notes": False}
     return {"ok": True, "paper_key": key, "chars": len(text),
             "writer": writer, "verifier": verifier, "blind": True}
+
+
+def idea_brief(seed: str, source_domain: str, target_domain: str) -> dict[str, Any]:
+    """M2f four-in-one (open-collider orchestration borrow, design only).
+
+    Collision triple + failure-lesson injection + 6-attack checklist + novelty
+    multi-query plan across ACTIVE backends. Pure read; judgement in-session."""
+    parts = {k: (v or "").strip() for k, v in
+             (("seed", seed), ("source_domain", source_domain), ("target_domain", target_domain))}
+    if not all(parts.values()):
+        return {"ok": False, "error": "seed, source_domain, and target_domain are all required"}
+    base = f"{parts['seed']} {parts['source_domain']} {parts['target_domain']}"
+    backends = [str(b) for b in canon.value("search.active")]
+    return {"ok": True, "collision": parts, "lessons": _lessons(),
+            "attacks": list(_ATTACKS),
+            "novelty_plan": [{"query": f"{base} prior work", "backend": b} for b in backends]
+            + [{"query": f"{parts['seed']} {b} review", "backend": b} for b in backends]}
