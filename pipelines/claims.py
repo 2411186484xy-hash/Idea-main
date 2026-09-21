@@ -12,7 +12,11 @@ from typing import Any
 
 from . import contracts, runs, store
 
-_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+_QUANTITY_RE = re.compile(r"(\d+(?:\.\d+)?)\s*([a-zA-Z%°µ]+)?")
+_MEASURE_UNITS = frozenset(
+    "% ° °c µ µm um nm mm cm m km ms s min h hz khz mhz ghz px db ev kev mev gev "
+    "pa kpa mpa n j w v a mol lx k c".split()
+)
 
 
 def _fail(error: str, **extra: Any) -> dict[str, Any]:
@@ -68,9 +72,25 @@ def load_claims() -> list[dict[str, Any]]:
     return store.read_jsonl(store.claims_path())
 
 
-def _numbers(row: dict[str, Any]) -> set[float]:
+def _quantities(row: dict[str, Any]) -> set[tuple[float, str]]:
+    """M2d unit-aware numbers: bare year-like integers are not measurements,
+    and a conflict needs the same unit on both sides (mm vs % never clashes)."""
     text = f"{row.get('text', '')} {row.get('quote', '')}"
-    return {float(m) for m in _NUMBER_RE.findall(text)}
+    out: set[tuple[float, str]] = set()
+    for match in _QUANTITY_RE.finditer(text):
+        value = float(match.group(1))
+        raw = (match.group(2) or "").lower()
+        unit = raw if raw in _MEASURE_UNITS else ""
+        if not unit and value.is_integer() and 1900 <= value <= 2100:
+            continue
+        out.add((value, unit))
+    return out
+
+
+def _numeric_clash(left: set[tuple[float, str]], right: set[tuple[float, str]]) -> bool:
+    shared = {u for _, u in left} & {u for _, u in right}
+    return any({v for v, u in left if u == unit}.isdisjoint({v for v, u in right if u == unit})
+               for unit in shared)
 
 
 def _contradiction_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -96,21 +116,23 @@ def _contradiction_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     pairs.append(
                         {
                             "kind": "verdict_opposite",
+                            "severity": "high",
                             "topic": topic,
                             "a": {**ends[0], "verifier_verdict": verdicts[0]},
                             "b": {**ends[1], "verifier_verdict": verdicts[1]},
                         }
                     )
-                nums_left, nums_right = _numbers(left), _numbers(right)
-                if nums_left and nums_right and nums_left.isdisjoint(nums_right):
+                nums_left, nums_right = _quantities(left), _quantities(right)
+                if nums_left and nums_right and _numeric_clash(nums_left, nums_right):
                     pairs.append(
                         {
                             "kind": "numeric_conflict",
+                            "severity": "medium",
                             "topic": topic,
                             "a": ends[0],
                             "b": ends[1],
-                            "numbers_a": sorted(nums_left),
-                            "numbers_b": sorted(nums_right),
+                            "quantities_a": sorted(nums_left),
+                            "quantities_b": sorted(nums_right),
                         }
                     )
     return pairs

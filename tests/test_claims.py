@@ -114,3 +114,42 @@ def test_view_writes_nothing_to_disk(frozen_clock, tmp_path):
     claims.view()
     claims.view(pairs_only=True)
     assert {str(p) for p in store.knowledge_root().rglob("*")} == before
+
+
+def test_numeric_years_do_not_clash(frozen_clock):
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/a", topic="yr", text="study 2024 shows gain",
+                 quote="2024", verifier_verdict="CONFIRMED")
+    )
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/b", topic="yr", text="study 2025 shows gain",
+                 quote="2025", verifier_verdict="CONFIRMED")
+    )
+    assert claims.view()["pairs"] == []
+
+
+def test_numeric_unit_mismatch_suppressed(frozen_clock):
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/a", topic="u", text="error 0.05 mm",
+                 quote="0.05 mm", verifier_verdict="CONFIRMED")
+    )
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/b", topic="u", text="rate 5 %",
+                 quote="5 %", verifier_verdict="CONFIRMED")
+    )
+    assert claims.view()["pairs"] == []
+
+
+def test_pairs_carry_severity(frozen_clock):
+    _opposite_pair_setup()
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/c", topic="err", text="rmse 0.05 mm", quote="0.05",
+                 verifier_verdict="CONFIRMED")
+    )
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/d", topic="err", text="rmse 0.5 mm", quote="0.5",
+                 verifier_verdict="CONFIRMED")
+    )
+    by_kind = {p["kind"]: p["severity"] for p in claims.view()["pairs"]}
+    assert by_kind["verdict_opposite"] == "high"
+    assert by_kind["numeric_conflict"] == "medium"
