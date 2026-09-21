@@ -1,0 +1,35 @@
+name: Idea OS v2 checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned tools
+        run: >-
+          python -m pip install
+          "ruff==0.16.3" "pytest>=9.1.1"
+      - name: Fast tests (smoke excluded by pyproject addopts)
+        run: python -m pytest -q
+      - name: Ruff
+        run: ruff check .
+      - name: "Drive-letter scan (E:/C: roots live in canon, never in code)"
+        run: |
+          if grep -rPn '(?<![A-Za-z0-9])[A-Za-z]:[\\/]' --include='*.py' pipelines cli.py; then
+            echo "hardcoded drive letter found outside canon"
+            exit 1
+          fi
+      - name: README command-table consistency
+        run: python -m pytest tests/test_docs.py -q

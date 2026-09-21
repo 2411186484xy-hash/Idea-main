@@ -1,0 +1,16 @@
+# M1.4 governance hooks: ruff + EOF + private-key. runs/ is git-excluded
+# runtime state, so byte-normalization hooks skip it (V1 lesson: never
+# normalize live run dirs; frozen artifacts must keep their bytes).
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff-check
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+        exclude: ^runs/
+      - id: trailing-whitespace
+        exclude: ^runs/
+      - id: detect-private-key
