@@ -224,3 +224,16 @@ def read_bytes(path: Path) -> bytes:
 def read_text(path: Path) -> str:
     """UTF-8 text read (brief inputs); the only text-read primitive in the repo."""
     return path.read_text(encoding="utf-8")
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    """LF + trailing newline, tmp + os.replace + fsync (delivery docs)."""
+    if not text.endswith("\n"):
+        text += "\n"
+    ensure_dir(path.parent)
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import contracts, runs, store
+from . import canon, contracts, runs, store
 
 
 def _fail(error: str, **extra: Any) -> dict[str, Any]:
@@ -51,3 +51,109 @@ def add_idea(payload: dict[str, Any], run_id: str | None = None,
         out["hold"] = {"dims": hold_dims,
                        "note": "publish refuses hold dims until revised"}
     return out
+
+
+def _hold_dims(idea_dict: dict[str, Any]) -> list[str]:
+    card = idea_dict.get("quality_card") or {}
+    return sorted(d for d, entry in card.items() if int((entry or {}).get("score", 5)) <= 2)
+
+
+def _render_pack(idea_dict: dict[str, Any]) -> dict[str, str]:
+    """M2h delivery 4-pack (V1 DEC-0032/0035 stratification, real templates)."""
+    slug = idea_dict["slug"]
+    collision = idea_dict.get("collision", {})
+    quality = "\n".join(f"- {d}: { (c or {}).get('score') } — {(c or {}).get('rationale', '')}"
+                        for d, c in (idea_dict.get("quality_card") or {}).items())
+    attacks = "\n".join(f"{i + 1}. {a}" for i, a in enumerate(idea_dict.get("attacks", [])))
+    refs = "\n".join(f"- {r}" for r in idea_dict.get("evidence_refs", []))
+    novelty = "\n".join(f"- {n.get('query')} [{n.get('backend')}] → {n.get('top_match')}: "
+                        f"{n.get('note')}" for n in idea_dict.get("novelty_log", []))
+    idea_md = (f"# {idea_dict.get('title', slug)}\n\nslug: `{slug}`\n\n"
+               f"## Hypothesis\n\n{idea_dict.get('hypothesis', '')}\n\n"
+               f"## Collision\n\nseed: {collision.get('seed', '')}\n"
+               f"source: {collision.get('source_domain', '')}\n"
+               f"target: {collision.get('target_domain', '')}\n\n"
+               f"## Quality card\n\n{quality}\n\n## Attacks\n\n{attacks}\n")
+    evidence_md = f"# Evidence — {slug}\n\n## Corpus refs (gate 3+1+1)\n\n{refs}\n"
+    novelty_md = f"# Novelty — {slug}\n\n## Checks\n\n{novelty}\n\n## Attacks\n\n{attacks}\n"
+    return {"idea.md": idea_md, "evidence.md": evidence_md, "novelty.md": novelty_md}
+
+
+def publish(slug: str, run_id: str | None = None) -> dict[str, Any]:
+    """M2h: 4-file delivery + mirror + builtin check + pool removal.
+
+    Delivery root is the source of truth; the pool only holds in-flight work.
+    researcher-decision.json ships pending_backfill so feedback-import-v1 can
+    later close the loop without touching delivered files."""
+    pool_path = store.idea_pool_path()
+    pool: list[Any] = store.read_json(pool_path) if pool_path.exists() else []
+    if not isinstance(pool, list):
+        return _fail("idea-pool.json must be a list of in-flight candidates")
+    target = next((r for r in pool if isinstance(r, dict) and r.get("slug") == slug), None)
+    if target is None:
+        return _fail(f"slug not in pool (in-flight only): {slug}")
+    hold = _hold_dims(target)
+    if hold:
+        return _fail(f"publish refused: hold dims {hold} until revised", slug=slug)
+    pack = _render_pack(target)
+    decision = {"candidate_id": slug, "decision": "pending_backfill",
+                "decided_at": store.now(),
+                "note": "published by idea-os v2; awaiting researcher verdict"}
+    dst_dir = canon.delivery_root() / slug
+    mirror_dir = canon.idea_mirror_root() / slug
+    try:
+        for name, body in pack.items():
+            store.write_text_atomic(dst_dir / name, body)
+        store.write_json_atomic(dst_dir / "researcher-decision.json", decision)
+        for name in pack:
+            store.copy_file(dst_dir / name, mirror_dir / name)
+        store.copy_file(dst_dir / "researcher-decision.json",
+                        mirror_dir / "researcher-decision.json")
+    except OSError as exc:
+        return _fail(f"publish failed: {exc}", slug=slug)
+    names = sorted([*pack, "researcher-decision.json"])
+    got = sorted(p.name for p in dst_dir.iterdir() if p.is_file())
+    mirrored = sorted(p.name for p in mirror_dir.iterdir() if p.is_file())
+    bad_sha = [n for n in names
+               if store.sha256_file(dst_dir / n) != store.sha256_file(mirror_dir / n)]
+    if got != names or mirrored != names or bad_sha:
+        return _fail(f"delivery check failed: files={got} mirror={mirrored} sha_bad={bad_sha}",
+                     slug=slug)
+    store.write_json_atomic(pool_path, [r for r in pool if r is not target])
+    if run_id:
+        run = runs.load(run_id)
+        if run is not None and run.status == "active":
+            runs.append_trace(run, "PUBLISH", slug)
+            runs.save(run)
+    return {"ok": True, "slug": slug, "files": names, "dir": str(dst_dir),
+            "mirror": str(mirror_dir), "sha_match": True}
+
+
+def backup_verify() -> dict[str, Any]:
+    """M2h: backup freshness (name parity) + sampled SHA restore check.
+
+    Per directory every filename must exist on both sides; SHA is verified on
+    a sample (first two files) to keep the check proportional."""
+    delivery, mirror = canon.delivery_root(), canon.idea_mirror_root()
+    if not delivery.is_dir():
+        return _fail(f"delivery root not found: {delivery}")
+    mismatches: list[str] = []
+    dirs, sampled = 0, 0
+    for child in sorted(delivery.iterdir()):
+        if not child.is_dir():
+            continue
+        dirs += 1
+        twin = mirror / child.name
+        want = sorted(p.name for p in child.iterdir() if p.is_file())
+        have = sorted(p.name for p in twin.iterdir() if p.is_file()) if twin.is_dir() else []
+        if want != have:
+            mismatches.append(f"{child.name}: delivery={want} mirror={have}")
+            continue
+        for name in want[:2]:
+            sampled += 1
+            if store.sha256_file(child / name) != store.sha256_file(twin / name):
+                mismatches.append(f"{child.name}/{name}: SHA mismatch")
+    if mismatches:
+        return {"ok": False, "error": f"backup mismatch: {mismatches}",
+                "dirs": dirs, "sampled": sampled, "mismatches": mismatches}
+    return {"ok": True, "dirs": dirs, "sampled": sampled, "mismatches": []}

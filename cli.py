@@ -26,9 +26,8 @@ from pipelines import (  # noqa: E402
     validate,
 )
 
-NOT_IMPLEMENTED = {
-    "publish": "M2h",
-    "backup-verify": "M2h",
+NOT_IMPLEMENTED: dict[str, str] = {
+    # M2h lands the last two: every parser command now has logic in main().
 }
 
 
@@ -95,7 +94,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--run", help="append IDEA_ADD trace to this run")
     s.add_argument("--lessons-read", action="store_true",
                    help="confirm idea-brief lessons were read")
-    sub.add_parser("publish", help="deliver the 4-file pack to the delivery root + mirror")
+    s = sub.add_parser("publish", help="deliver the 4-file pack to the delivery root + mirror")
+    s.add_argument("slug")
+    s.add_argument("--run", help="append PUBLISH trace to this run")
 
     s = sub.add_parser("feedback-add", help="record researcher verdict (only validation signal)")
     s.add_argument("slug")
@@ -228,6 +229,10 @@ def main(argv: list[str] | None = None) -> int:
         from pipelines import zotero
 
         return _emit(zotero.readback(args.manifest))
+    if cmd == "publish":
+        return _emit(idea.publish(args.slug, args.run))
+    if cmd == "backup-verify":
+        return _emit(idea.backup_verify())
     return 1
 
 

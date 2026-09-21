@@ -100,3 +100,44 @@ def test_idea_brief_four_in_one(frozen_clock):
     assert len(brief["attacks"]) == 6
     assert {q["backend"] for q in brief["novelty_plan"]} == {"openalex", "arxiv", "crossref", "europepmc"}
     assert report.idea_brief("", "s", "t")["ok"] is False
+
+
+def test_publish_delivers_verifies_and_removes(frozen_clock):
+    from pipelines import canon, runs, store
+
+    runs.start("idea", "IDEARUN-20260921-120000")
+    assert idea.add_idea(_payload(), run_id="IDEARUN-20260921-120000", lessons_read=True)["ok"]
+    out = idea.publish("fringe-scale-disambiguation", run_id="IDEARUN-20260921-120000")
+    assert out["ok"] and out["sha_match"] is True
+    assert out["files"] == ["evidence.md", "idea.md", "novelty.md", "researcher-decision.json"]
+    slug_dir = canon.delivery_root() / "fringe-scale-disambiguation"
+    assert (slug_dir / "idea.md").read_text(encoding="utf-8").startswith("# Bidirectional")
+    assert store.read_json(store.idea_pool_path()) == []
+    assert runs.load("IDEARUN-20260921-120000").trace[-1]["event"] == "PUBLISH"
+    assert not idea.publish("fringe-scale-disambiguation")["ok"]
+    check = idea.backup_verify()
+    assert check["ok"] and check["dirs"] == 1 and check["sampled"] >= 1
+
+
+def test_publish_refuses_hold_and_unknown(frozen_clock):
+    card = {dim: {"score": 3, "rationale": f"{dim} ok"} for dim in (
+        "novelty", "rigor", "feasibility", "clarity", "data_availability", "venue_fit")}
+    card["rigor"] = {"score": 1, "rationale": "no control"}
+    assert idea.add_idea(_payload(slug="risky", quality_card=card), lessons_read=True)["ok"]
+    refused = idea.publish("risky")
+    assert not refused["ok"] and "hold" in refused["error"]
+    assert not idea.publish("ghost-slug")["ok"]
+
+
+def test_backup_verify_flags_mismatch(frozen_clock, tmp_path):
+    from pipelines import canon, store
+
+    assert idea.add_idea(_payload(), lessons_read=True)["ok"]
+    assert idea.publish("fringe-scale-disambiguation")["ok"]
+    twin = canon.idea_mirror_root() / "fringe-scale-disambiguation" / "idea.md"
+    twin.write_text("tampered", encoding="utf-8")
+    bad = idea.backup_verify()
+    assert not bad["ok"] and any("SHA mismatch" in m for m in bad["mismatches"])
+    (canon.idea_mirror_root() / "fringe-scale-disambiguation" / "novelty.md").unlink()
+    gone = idea.backup_verify()
+    assert not gone["ok"] and store.read_json(store.idea_pool_path()) == []
