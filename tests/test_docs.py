@@ -39,3 +39,19 @@ def test_every_parser_command_implemented_or_declared():
     parser_cmds = _parser_commands()
     stubbed_and_missing = declared - parser_cmds
     assert not stubbed_and_missing, f"stubs declared but not wired: {stubbed_and_missing}"
+
+
+def test_docs_closed_to_seven():
+    """M1.8: the doc set is exactly README + 6 docs files; process drafts gone."""
+    repo = README.parent
+    docs = repo / "docs"
+    assert (repo / "README.md").exists()
+    names = sorted(p.name for p in docs.iterdir() if p.is_file())
+    assert names == [
+        "ENVIRONMENT.md",
+        "FINAL-REPORT.md",
+        "FOUNDATION-DESIGN.md",
+        "GITHUB-SURVEY-2026-09-21.md",
+        "PITFALL-COMPLETENESS-REVIEW.md",
+        "V2-MASTER-PLAN.md",
+    ], f"docs/ drift: {names}"
