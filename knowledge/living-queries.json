@@ -1,6 +1,0 @@
-{
-  "queries": [
-    {"id": "g1-physics-constrained", "gap": "G1", "text": "physics-constrained 3D reconstruction optical measurement", "precision_window": []},
-    {"id": "g3-uncertainty-joint", "gap": "G3", "text": "stereo disparity calibration uncertainty propagation", "precision_window": []}
-  ]
-}

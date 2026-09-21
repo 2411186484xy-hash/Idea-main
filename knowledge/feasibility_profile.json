@@ -1,7 +1,0 @@
-{
-  "lab": "光电学院（平均画像）",
-  "data": ["公开数据集优先", "台架自采需师兄/工程师协助"],
-  "compute": "实验室服务器排队制",
-  "time_hours_per_week": [10, 20],
-  "advisor_cycle_weeks": [1, 2]
-}
