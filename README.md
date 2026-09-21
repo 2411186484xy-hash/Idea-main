@@ -19,7 +19,7 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 |---|---|---|
 | `run-start` | 启动 run（weekly/idea）；`--resume` 续跑 partial | M0 |
 | `run-finish` | 收口：默认完成删除；`--partial` 留档可续；`--absorb` 放弃收口 | M0 |
-| `session-brief` | 首屏：purpose + 活跃 run + 知识层计数 + stale 警告 | M0 |
+| `session-brief` | 首屏四块：coverage + 活跃 run + 教训摘要 + 待办 | M1.6 |
 | `validate` | 结构校验（canon 同步/悬挂 run/账本完整性）；`--strict` 警告也算失败 | M0 |
 | `search` | ACTIVE 后端召回池（OpenAlex+arXiv）；`--run` 记 query_log | M0 |
 | `query-brief` | 多视角查询任务包 + 查询去重 | M2a |
