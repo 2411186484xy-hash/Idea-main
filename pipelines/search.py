@@ -1,9 +1,8 @@
 """L2 search port: OpenAlex + arXiv + Crossref + EuropePMC behind one envelope.
 
-Network discipline (V1-proven): polite-pool mailto, identifiable UA, arXiv
-3s interval, SSL certifi fallback, sandbox proxy bypass, timeouts — failures
-return ErrorEnvelope dicts, never raise. The OpenAlex inverted-index abstract
-restore is ported verbatim from V1 literature_search_tools.py:1067.
+Network discipline (V1-proven): polite-pool mailto, identifiable UA, arXiv 3s
+interval, SSL certifi fallback, sandbox proxy bypass, timeouts — failures
+return ErrorEnvelope dicts, never raise (inverted-index restore: V1 :1067).
 """
 
 from __future__ import annotations
@@ -96,18 +95,9 @@ def restore_abstract(inverted_index: dict[str, list[int]] | None) -> str:
     return " ".join(word for _, word in sorted(pos))
 
 
-def _candidate(
-    *,
-    title: str,
-    identifiers: dict[str, str],
-    backend: str,
-    abstract: str,
-    year: int | None,
-    venue: str | None,
-    cited_by: int | None,
-    retracted: bool,
-    checked_backend: str,
-) -> contracts.PaperCandidate | None:
+def _candidate(*, title: str, identifiers: dict[str, str], backend: str, abstract: str,
+               year: int | None, venue: str | None, cited_by: int | None,
+               retracted: bool, checked_backend: str) -> contracts.PaperCandidate | None:
     if not any(identifiers.values()):
         return None
     return contracts.PaperCandidate(
@@ -129,15 +119,9 @@ def _candidate(
 
 
 def openalex_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    body, err = _fetch(
-        "https://api.openalex.org/works",
-        {
-            "search": query,
-            "per-page": limit,
-            "mailto": str(canon.value("search.polite_pool_mailto")),
-        },
-        int(canon.value("search.timeout_seconds")),
-    )
+    body, err = _fetch("https://api.openalex.org/works",
+        {"search": query, "per-page": limit, "mailto": str(canon.value("search.polite_pool_mailto"))},
+        int(canon.value("search.timeout_seconds")))
     if err or body is None:
         return [], [err or {"source": "openalex", "category": "network", "message": "no body"}]
     works = json.loads(body).get("results", [])
@@ -146,22 +130,14 @@ def openalex_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], 
     for w in works:
         source = (w.get("primary_location") or {}).get("source") or {}
         doi = str(w.get("doi") or "").replace("https://doi.org/", "").strip()
-        cand = _candidate(
-            title=str(w.get("title") or ""),
-            identifiers={"doi": doi} if doi else {},
-            backend="openalex",
+        cand = _candidate(title=str(w.get("title") or ""),
+            identifiers={"doi": doi} if doi else {}, backend="openalex",
             abstract=restore_abstract(w.get("abstract_inverted_index")),
-            year=w.get("publication_year"),
-            venue=source.get("display_name"),
-            cited_by=w.get("cited_by_count"),
-            retracted=bool(w.get("is_retracted")),
-            checked_backend="openalex_is_retracted",
-        )
+            year=w.get("publication_year"), venue=source.get("display_name"),
+            cited_by=w.get("cited_by_count"), retracted=bool(w.get("is_retracted")),
+            checked_backend="openalex_is_retracted")
         if cand is None:
-            errors.append(
-                _envelope("openalex", "gate",
-                          f"work without identifier dropped: {str(w.get('title'))[:60]}")
-            )
+            errors.append(_envelope("openalex", "gate", f"work without identifier dropped: {str(w.get('title'))[:60]}"))
             continue
         results.append(store.to_dict(cand))
     return results, errors
@@ -196,30 +172,21 @@ def arxiv_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], lis
     except ET.ParseError as exc:
         return [], [_envelope("arxiv", "parse", f"xml parse: {exc}")]
     for entry in root.findall("a:entry", _ARXIV_NS):
-        arxiv_id = (entry.findtext("a:id", default="", namespaces=_ARXIV_NS) or "").rsplit(
-            "/abs/", 1
-        )[-1]
+        arxiv_id = (entry.findtext("a:id", default="", namespaces=_ARXIV_NS) or "").rsplit("/abs/", 1)[-1]
         published = entry.findtext("a:published", default="", namespaces=_ARXIV_NS) or ""
-        cand = _candidate(
-            title=(entry.findtext("a:title", default="", namespaces=_ARXIV_NS) or ""),
-            identifiers={"arxiv_id": arxiv_id} if arxiv_id else {},
-            backend="arxiv",
+        cand = _candidate(title=(entry.findtext("a:title", default="", namespaces=_ARXIV_NS) or ""),
+            identifiers={"arxiv_id": arxiv_id} if arxiv_id else {}, backend="arxiv",
             abstract=(entry.findtext("a:summary", default="", namespaces=_ARXIV_NS) or "").strip(),
-            year=int(published[:4]) if published[:4].isdigit() else None,
-            venue="arXiv",
-            cited_by=None,
-            retracted=False,
-            checked_backend="arxiv",
-        )
+            year=int(published[:4]) if published[:4].isdigit() else None, venue="arXiv",
+            cited_by=None, retracted=False, checked_backend="arxiv")
         if cand is not None:
             results.append(store.to_dict(cand))
     return results, []
 
 def crossref_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Crossref discovery + update-to/updated-by retraction channel (M2a)."""
-    body, err = _fetch("https://api.crossref.org/works",
-        {"query": query, "rows": limit, "select": "DOI,title,abstract,container-title,published,created,is-referenced-by-count,updated-by,update-to"},
-        int(canon.value("search.timeout_seconds")))
+    select = "DOI,title,abstract,container-title,published,created,is-referenced-by-count,updated-by,update-to"
+    body, err = _fetch("https://api.crossref.org/works", {"query": query, "rows": limit, "select": select}, int(canon.value("search.timeout_seconds")))
     if err or body is None:
         return [], [err or {"source": "crossref", "category": "network", "message": "no body"}]
     try:
@@ -232,8 +199,8 @@ def crossref_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], 
         doi = str(it.get("DOI") or "").strip()
         cand = _candidate(title=str((it.get("title") or [""])[0] or ""),
             identifiers={"doi": doi} if doi else {}, backend="crossref",
-            abstract=_strip_tags(it.get("abstract")),
-            year=_crossref_year(it), venue=str((it.get("container-title") or [None])[0] or "") or None,
+            abstract=_strip_tags(it.get("abstract")), year=_crossref_year(it),
+            venue=str((it.get("container-title") or [None])[0] or "") or None,
             cited_by=it.get("is-referenced-by-count"), retracted=_crossref_retracted(it),
             checked_backend="crossref_update_to")
         if cand is None:
@@ -244,9 +211,7 @@ def crossref_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], 
 
 def europepmc_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """EuropePMC discovery (M2a, fourth channel; core resultType carries abstracts)."""
-    body, err = _fetch("https://www.ebi.ac.uk/europepmc/webservices/rest/search",
-        {"query": query, "format": "json", "pageSize": limit, "resultType": "core"},
-        int(canon.value("search.timeout_seconds")))
+    body, err = _fetch("https://www.ebi.ac.uk/europepmc/webservices/rest/search", {"query": query, "format": "json", "pageSize": limit, "resultType": "core"}, int(canon.value("search.timeout_seconds")))
     if err or body is None:
         return [], [err or {"source": "europepmc", "category": "network", "message": "no body"}]
     try:
@@ -270,29 +235,64 @@ def europepmc_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]],
         results.append(store.to_dict(cand))
     return results, errors
 
-_ADAPTERS = {"openalex": openalex_search, "arxiv": arxiv_search,
-             "crossref": crossref_search, "europepmc": europepmc_search}
+_ADAPTERS = {"openalex": openalex_search, "arxiv": arxiv_search, "crossref": crossref_search, "europepmc": europepmc_search}
 
-def search(
-    query: str, limit: int = 15, backends: list[str] | None = None
-) -> dict[str, Any]:
-    """ACTIVE-driven multi-backend recall pool; selection stays with the session model."""
+def _dedup(pool: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """First-seen wins; repeat hits extend the source trail (source-tracking)."""
+    seen: dict[str, dict[str, Any]] = {}
+    out: list[dict[str, Any]] = []
+    for cand in pool:
+        key = cand.get("paper_key", "")
+        if key and key in seen:
+            seen[key].setdefault("sources", []).extend(cand.get("sources", []))
+        elif key:
+            seen[key] = cand
+            out.append(cand)
+    return out
+
+
+def _resolve_backends(backends: list[str] | None) -> tuple[list[str], dict[str, Any] | None]:
     active = list(canon.value("search.active"))
     chosen = backends or active
     unknown = [b for b in chosen if b not in active]
     if unknown:
-        return {"ok": False, "error": f"unknown backends {unknown}; active: {active}"}
-    pool: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
+        return [], {"ok": False, "error": f"unknown backends {unknown}; active: {active}"}
+    return chosen, None
+
+
+def _run_one(query: str, backend: str, limit: int, pool: list[dict[str, Any]], errors: list[dict[str, Any]]) -> None:
+    found, errs = _ADAPTERS[backend](query, limit)
+    for cand in found:
+        cand.setdefault("sources", []).append({"backend": backend, "query": query})
+    pool.extend(found)
+    errors.extend(errs)
+
+
+def search(query: str, limit: int = 15, backends: list[str] | None = None) -> dict[str, Any]:
+    """ACTIVE-driven multi-backend recall pool; selection stays with the session model."""
+    chosen, err = _resolve_backends(backends)
+    if err:
+        return err
+    pool, errors = [], []
     for backend in chosen:
-        found, errs = _ADAPTERS[backend](query, limit)
-        pool.extend(found)
-        errors.extend(errs)
-    seen: set[str] = set()
-    deduped: list[dict[str, Any]] = []
-    for cand in pool:
-        key = cand.get("paper_key", "")
-        if key and key not in seen:
-            seen.add(key)
-            deduped.append(cand)
-    return {"ok": True, "query": query, "results": deduped, "errors": errors}
+        _run_one(query, backend, limit, pool, errors)
+    return {"ok": True, "query": query, "results": _dedup(pool), "errors": errors}
+
+
+def search_multi(queries: list[str], limit: int = 15, backends: list[str] | None = None) -> dict[str, Any]:
+    """Executor fan-out (gpt-researcher executor borrow, mechanical only).
+
+    Runs each planner-supplied query over ACTIVE backends with per-hit source
+    trails, deduped across the whole pool. Planning stays in-session:
+    query-brief output feeds `queries`. Envelopes never raise."""
+    chosen, err = _resolve_backends(backends)
+    if err:
+        return err
+    clean = [str(q).strip() for q in queries or [] if str(q or "").strip()]
+    if not clean:
+        return {"ok": False, "error": "at least one query required"}
+    pool, errors = [], []
+    for query in clean:
+        for backend in chosen:
+            _run_one(query, backend, limit, pool, errors)
+    return {"ok": True, "queries": clean, "results": _dedup(pool), "errors": errors}

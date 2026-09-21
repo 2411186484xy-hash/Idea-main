@@ -56,6 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--limit", type=int, default=15)
     s.add_argument("--backend", action="append")
     s.add_argument("--run", help="log the query into this run's query_log")
+    s.add_argument("--expand", action="store_true",
+                   help="fan out query-brief perspectives across backends")
 
     s = sub.add_parser("query-brief", help="multi-perspective query pack")
     s.add_argument("query")
@@ -158,16 +160,26 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "validate":
         return _emit(validate.validate(args.strict))
     if cmd == "search":
-        result = search.search(args.query, args.limit, args.backend)
+        logged = [args.query]
+        if args.expand:
+            brief = report.query_brief(args.query, args.run)
+            if not brief.get("ok"):
+                return _emit(brief)
+            logged = [p["query"] for p in brief["perspectives"]]
+            result = search.search_multi(logged, args.limit, args.backend)
+        else:
+            result = search.search(args.query, args.limit, args.backend)
         if result.get("ok") and args.run:
             run = runs.load(args.run)
             if run is None or run.status != "active":
                 result["run_log"] = f"run not active, query not logged: {args.run}"
             else:
-                run.query_log.append(
-                    {"query": args.query, "backend": ",".join(args.backend or ["active"]), "at": store.now()}
-                )
-                runs.append_trace(run, "SEARCH", args.query)
+                for query in logged:
+                    run.query_log.append(
+                        {"query": query, "backend": ",".join(args.backend or ["active"]),
+                         "at": store.now()}
+                    )
+                runs.append_trace(run, "SEARCH", f"{len(logged)} queries expanded" if args.expand else args.query)
                 runs.save(run)
         return _emit(result)
     if cmd == "screen-rank":

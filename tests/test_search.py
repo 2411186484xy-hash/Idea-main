@@ -159,3 +159,47 @@ def test_search_all_four_backends_dispatch(monkeypatch):
     result = search.search("q")
     assert result["ok"] and result["errors"] == []
     assert len(seen) == 4
+
+
+def test_search_tags_sources(monkeypatch):
+    body = json.dumps({"results": [{"title": "T", "doi": "https://doi.org/10.1/x"}]})
+    monkeypatch.setattr(search, "_fetch", lambda url, params, timeout: (body, None))
+    result = search.search("my query", backends=["openalex"])
+    assert result["results"][0]["sources"] == [{"backend": "openalex", "query": "my query"}]
+
+
+def test_search_multi_merges_trails_and_rejects_bad(monkeypatch):
+    def fake(url, params, timeout):
+        term = params.get("search", params.get("query", params.get("search_query", "")))
+        if "second" in str(term):
+            return json.dumps({"results": [
+                {"title": "Shared", "doi": "https://doi.org/10.1/s"},
+                {"title": "New", "doi": "https://doi.org/10.1/n"}]}), None
+        return json.dumps({"results": [
+            {"title": "Shared", "doi": "https://doi.org/10.1/s"}]}), None
+
+    monkeypatch.setattr(search, "_fetch", fake)
+    out = search.search_multi(["first", "second"], backends=["openalex"])
+    assert out["ok"] and out["queries"] == ["first", "second"]
+    shared = next(c for c in out["results"] if c["paper_key"] == "doi:10.1/s")
+    assert [s["query"] for s in shared["sources"]] == ["first", "second"]
+    assert search.search_multi([], backends=["openalex"])["ok"] is False
+    assert search.search_multi(["q"], backends=["nope"])["ok"] is False
+
+
+def test_search_expand_logs_all_queries(monkeypatch, frozen_clock, capsys):
+    from cli import main
+    from pipelines import runs
+
+    monkeypatch.setattr(search, "_respect_arxiv_interval", lambda: None)
+    monkeypatch.setattr(search, "_fetch", lambda url, params, timeout: (
+        json.dumps({"results": []}), None) if "openalex" in url else (
+        """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>""", None)
+        if "arxiv" in url else (json.dumps({"message": {"items": []}}), None)
+        if "crossref" in url else (json.dumps({"resultList": {"result": []}}), None))
+    runs.start("weekly", "WEEKLYRUN-20260921-120000")
+    rc = main(["search", "base q", "--run", "WEEKLYRUN-20260921-120000", "--expand"])
+    assert rc == 0
+    run = runs.load("WEEKLYRUN-20260921-120000")
+    assert len(run.query_log) == 4
+    assert run.trace[-1]["event"] == "SEARCH"
