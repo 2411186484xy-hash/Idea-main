@@ -105,6 +105,26 @@ def _score(cand: contracts.PaperCandidate, current_year: int) -> int:
     return score
 
 
+def stop_consecutive_low(scores: list[int], stop_score: int, stop_n: int) -> dict[str, Any]:
+    """asreview NConsecutiveIrrelevant analog: tail run below the low bar."""
+    tail_low = 0
+    for s in reversed(scores):
+        if s < stop_score:
+            tail_low += 1
+        else:
+            break
+    return {"name": "consecutive_low", "triggered": tail_low >= stop_n,
+            "detail": f"{tail_low} consecutive below {stop_score} (criterion: {stop_n})"}
+
+
+def stop_all_low(scores: list[int], stop_score: int, stop_n: int) -> dict[str, Any]:
+    """Whole-pool stopper: nothing clears the bar and the pool is sizable."""
+    low = sum(1 for s in scores if s < stop_score)
+    triggered = bool(scores) and low == len(scores) and len(scores) >= stop_n
+    return {"name": "all_low", "triggered": triggered,
+            "detail": f"{low}/{len(scores)} below {stop_score} (criterion: {stop_n})"}
+
+
 def screen_rank(run_id: str) -> dict[str, Any]:
     """Rule-based ordering + stop criterion; sets screen_status=ranked."""
     run = runs.load(run_id)
@@ -124,13 +144,12 @@ def screen_rank(run_id: str) -> dict[str, Any]:
     stop_n = int(canon.value("quotas.screen_stop_n"))
     stop_score = int(canon.value("quotas.screen_stop_score"))
     scores = [s for s, _ in scored]
-    tail_low = 0
-    for s in reversed(scores):
-        if s < stop_score:
-            tail_low += 1
-        else:
-            break
-    stop_hint = tail_low >= stop_n
+    stoppers = [stop_consecutive_low(scores, stop_score, stop_n),
+                stop_all_low(scores, stop_score, stop_n)]
+    stop_hint = any(s["triggered"] for s in stoppers)
+    balance: dict[str, int] = {}
+    for _, cand in scored:
+        balance[cand.discovery_class] = balance.get(cand.discovery_class, 0) + 1
     for _, cand in scored:
         cand.screen_status = "ranked"
     runs.append_trace(run, "SCREEN", f"{len(scored)} ranked, {len(vetoed)} vetoed")
@@ -144,12 +163,10 @@ def screen_rank(run_id: str) -> dict[str, Any]:
             for s, c in scored
         ],
         "vetoed": vetoed,
+        "stoppers": stoppers,
+        "coverage_balance": balance,
         "stop_hint": stop_hint,
-        "stop_note": (
-            f"{tail_low} consecutive candidates below score {stop_score} (criterion: {stop_n})"
-            if stop_hint
-            else None
-        ),
+        "stop_note": next((s["detail"] for s in stoppers if s["triggered"]), None),
     }
 
 

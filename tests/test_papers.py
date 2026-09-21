@@ -127,3 +127,21 @@ def test_set_screen_status(frozen_clock):
     assert runs.load(RUN).paper_candidates[0].screen_status == "selected"
     assert not papers.set_screen_status(RUN, "doi:10.1/x", "maybe")["ok"]
     assert not papers.set_screen_status(RUN, "doi:10.1/nope", "rejected")["ok"]
+
+
+def test_stoppers_are_named_and_independent():
+    assert papers.stop_consecutive_low([0, 0, 0, 0, 0], 2, 5)["triggered"]
+    assert papers.stop_consecutive_low([0, 0, 5, 0, 0], 2, 5)["triggered"] is False
+    assert papers.stop_all_low([0, 0, 0, 0, 0], 2, 5)["triggered"]
+    assert papers.stop_all_low([0, 0, 0], 2, 5)["triggered"] is False
+    assert papers.stop_all_low([], 2, 5)["triggered"] is False
+
+
+def test_screen_rank_reports_stoppers_and_balance(frozen_clock):
+    runs.start("weekly", RUN)
+    for i in range(5):
+        assert papers.add_paper(RUN, _payload(identifiers={"doi": f"10.1/w{i}"}))["ok"]
+    out = papers.screen_rank(RUN)
+    names = {s["name"]: s["triggered"] for s in out["stoppers"]}
+    assert names == {"consecutive_low": True, "all_low": True}
+    assert out["stop_note"] is not None and out["coverage_balance"] == {"direct": 5}
