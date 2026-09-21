@@ -57,3 +57,60 @@ def test_view_filters(frozen_clock):
     assert claims.view(verdict="NOT_FOUND")["count"] == 1
     assert claims.view(paper_key="doi:10.1/x")["count"] == 2
     assert claims.view(topic="a")["topics"] == {"a": 1}
+
+
+def _opposite_pair_setup():
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/a", topic="cal", text="holds", quote="holds",
+                 verifier_verdict="CONFIRMED")
+    )
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/b", topic="cal", text="fails", quote="fails",
+                 verifier_verdict="DEVIATED")
+    )
+
+
+def test_view_verdict_opposite_pairs(frozen_clock):
+    _opposite_pair_setup()
+    assert claims.view()["pairs"][0]["kind"] == "verdict_opposite"
+    same_paper = claims.view(paper_key="doi:10.1/a")
+    assert same_paper["pairs"] == []
+
+
+def test_view_confirmed_vs_not_found_is_opposite(frozen_clock):
+    claims.add_claim(_payload(paper_key="doi:10.1/a", verifier_verdict="CONFIRMED"))
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/b", quote="other", verifier_verdict="NOT_FOUND")
+    )
+    assert claims.view()["pairs"][0]["kind"] == "verdict_opposite"
+
+
+def test_view_numeric_conflict_pairs(frozen_clock):
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/a", topic="err", text="rmse 0.05 mm", quote="0.05",
+                 verifier_verdict="CONFIRMED")
+    )
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/b", topic="err", text="rmse 0.5 mm", quote="0.5",
+                 verifier_verdict="CONFIRMED")
+    )
+    pairs = claims.view()["pairs"]
+    assert [p["kind"] for p in pairs] == ["numeric_conflict"]
+    only = claims.view(pairs_only=True)
+    assert only["count"] == 2
+    claims.add_claim(
+        _payload(paper_key="doi:10.1/c", topic="err", text="rmse 0.5 mm", quote="0.5",
+                 verifier_verdict="CONFIRMED")
+    )
+    same_numbers = [p for p in claims.view()["pairs"] if p["kind"] == "numeric_conflict"]
+    assert len(same_numbers) == 2  # a-c still conflicts; b-c shares numbers
+
+
+def test_view_writes_nothing_to_disk(frozen_clock, tmp_path):
+    from pipelines import store
+
+    _opposite_pair_setup()
+    before = {str(p) for p in store.knowledge_root().rglob("*")}
+    claims.view()
+    claims.view(pairs_only=True)
+    assert {str(p) for p in store.knowledge_root().rglob("*")} == before

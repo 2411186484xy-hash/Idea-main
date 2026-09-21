@@ -28,7 +28,7 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 | `deepread-brief` | writer/verifier 盲分离双书任务包 | M2c |
 | `pdf-extract` | PDF 文本层提取（PyMuPDF 第一通道，MinerU 探针降级） | M2c |
 | `claims-add` | 追加页锚定 claim（quote 逐字 + page_anchor 硬门） | M0 |
-| `claims-view` | claims 即席渲染（过滤；矛盾对为 M2d） | M0 |
+| `claims-view` | 即席渲染（列表过滤 + 矛盾对：同 topic verdict 相反/数值冲突），不落盘 | M1.7 |
 | `idea-brief` | 碰撞三要素 + 教训注入 + 6 攻击 + 查新计划（四合一） | M2f |
 | `idea-add` | 供给门禁：coverage 未达阈值硬拦；过门后登记候选（M2f 完整孵化） | M1 门禁，M2f 完整 |
 | `publish` | 交付 4 件套到 E:\Idea + 镜像 E:\Backup\Idea + pool 除名 | M2h |

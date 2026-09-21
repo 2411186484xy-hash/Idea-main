@@ -7,9 +7,12 @@ fly and never land on disk.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from . import contracts, runs, store
+
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
 
 def _fail(error: str, **extra: Any) -> dict[str, Any]:
@@ -65,10 +68,59 @@ def load_claims() -> list[dict[str, Any]]:
     return store.read_jsonl(store.claims_path())
 
 
+def _numbers(row: dict[str, Any]) -> set[float]:
+    text = f"{row.get('text', '')} {row.get('quote', '')}"
+    return {float(m) for m in _NUMBER_RE.findall(text)}
+
+
+def _contradiction_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Lightweight rules over the filtered set: opposite verdicts on one
+    topic (CONFIRMED vs DEVIATED/NOT_FOUND across papers), or disjoint
+    numeric mentions on one topic. Pure derivation, never written to disk."""
+    pairs: list[dict[str, Any]] = []
+    by_topic: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_topic.setdefault(str(row.get("topic", "")), []).append(row)
+    for topic, group in by_topic.items():
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                left, right = group[i], group[j]
+                if left.get("paper_key") == right.get("paper_key"):
+                    continue
+                verdicts = (left.get("verifier_verdict"), right.get("verifier_verdict"))
+                ends = (
+                    {"id": left.get("id"), "paper_key": left.get("paper_key")},
+                    {"id": right.get("id"), "paper_key": right.get("paper_key")},
+                )
+                if ("CONFIRMED" in verdicts) and not all(v == "CONFIRMED" for v in verdicts):
+                    pairs.append(
+                        {
+                            "kind": "verdict_opposite",
+                            "topic": topic,
+                            "a": {**ends[0], "verifier_verdict": verdicts[0]},
+                            "b": {**ends[1], "verifier_verdict": verdicts[1]},
+                        }
+                    )
+                nums_left, nums_right = _numbers(left), _numbers(right)
+                if nums_left and nums_right and nums_left.isdisjoint(nums_right):
+                    pairs.append(
+                        {
+                            "kind": "numeric_conflict",
+                            "topic": topic,
+                            "a": ends[0],
+                            "b": ends[1],
+                            "numbers_a": sorted(nums_left),
+                            "numbers_b": sorted(nums_right),
+                        }
+                    )
+    return pairs
+
+
 def view(
     topic: str | None = None,
     paper_key: str | None = None,
     verdict: str | None = None,
+    pairs_only: bool = False,
 ) -> dict[str, Any]:
     """On-the-fly rendering; filters are optional; nothing is written."""
     rows = load_claims()
@@ -78,7 +130,11 @@ def view(
         rows = [r for r in rows if str(r.get("paper_key")) == paper_key]
     if verdict:
         rows = [r for r in rows if str(r.get("verifier_verdict")) == verdict]
+    pairs = _contradiction_pairs(rows)
+    if pairs_only:
+        involved = {p["a"]["id"] for p in pairs} | {p["b"]["id"] for p in pairs}
+        rows = [r for r in rows if r.get("id") in involved]
     by_topic: dict[str, int] = {}
     for r in rows:
         by_topic[str(r.get("topic", "general"))] = by_topic.get(str(r.get("topic", "general")), 0) + 1
-    return {"ok": True, "count": len(rows), "topics": by_topic, "claims": rows}
+    return {"ok": True, "count": len(rows), "topics": by_topic, "claims": rows, "pairs": pairs}

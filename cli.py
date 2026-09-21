@@ -84,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--topic")
     s.add_argument("--paper-key")
     s.add_argument("--verdict", choices=["CONFIRMED", "DEVIATED", "NOT_FOUND"])
+    s.add_argument("--pairs-only", action="store_true", help="only pairs and the claims in them")
 
     sub.add_parser("idea-brief", help="collision + lessons + attacks + novelty plan")
     s = sub.add_parser("idea-add", help="supply-gated idea registration (full brief in M2f)")
@@ -172,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return _emit(claims.add_claim(payload, args.run))
     if cmd == "claims-view":
-        return _emit(claims.view(args.topic, args.paper_key, args.verdict))
+        return _emit(claims.view(args.topic, args.paper_key, args.verdict, args.pairs_only))
     if cmd == "idea-add":
         payload = _load_json_arg(args.payload, "--payload")
         if payload is None:
