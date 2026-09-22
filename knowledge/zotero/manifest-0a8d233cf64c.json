@@ -1,0 +1,213 @@
+{
+  "created_at": "2026-09-22T11:17:02Z",
+  "items": [
+    {
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:sha12:118100155839"
+        }
+      ],
+      "title": "基于单目结构光的三维医用内窥成像系统关键技术研究"
+    },
+    {
+      "DOI": "10.1016/s0031-3203(99)00224-1",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1016/s0031-3203(99)00224-1"
+        }
+      ],
+      "title": "Decoding structured light patterns for three-dimensional imaging systems",
+      "url": "https://doi.org/10.1016/s0031-3203(99)00224-1"
+    },
+    {
+      "DOI": "10.1109/icip.2013.6738447",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1109/icip.2013.6738447"
+        }
+      ],
+      "title": "Design and decoding of an M-array pattern for low-cost structured light 3D reconstruction systems",
+      "url": "https://doi.org/10.1109/icip.2013.6738447"
+    },
+    {
+      "DOI": "10.1155/2021/6676704",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1155/2021/6676704"
+        }
+      ],
+      "title": "One-Shot M-Array Pattern Based on Coded Structured Light for Three-Dimensional Object Reconstruction",
+      "url": "https://doi.org/10.1155/2021/6676704"
+    },
+    {
+      "DOI": "10.1364/ao.381149",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1364/ao.381149"
+        }
+      ],
+      "title": "Complete grid pattern decoding method for a one-shot structured light system",
+      "url": "https://doi.org/10.1364/ao.381149"
+    },
+    {
+      "DOI": "10.3390/s21196444",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.3390/s21196444"
+        }
+      ],
+      "title": "A Topology-Based Stereo Matching Method for One Shot 3D Measurement Using Coded Spot-Array Structured Light",
+      "url": "https://doi.org/10.3390/s21196444"
+    },
+    {
+      "DOI": "10.1117/12.3096025",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1117/12.3096025"
+        }
+      ],
+      "title": "Ultra-miniaturized structured-light projector for tissue profiling in chip-on-tip endoscopy",
+      "url": "https://doi.org/10.1117/12.3096025"
+    },
+    {
+      "DOI": "10.1038/s41598-026-50612-0",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1038/s41598-026-50612-0"
+        }
+      ],
+      "title": "A novel system design for monocular laser assisted capsule endoscopy for 3D small bowel modeling.",
+      "url": "https://doi.org/10.1038/s41598-026-50612-0"
+    },
+    {
+      "DOI": "10.1117/1.oe.58.6.064108",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1117/1.oe.58.6.064108"
+        }
+      ],
+      "title": "High dynamic range three-dimensional shape reconstruction via an auto-exposure-based structured light technique",
+      "url": "https://doi.org/10.1117/1.oe.58.6.064108"
+    },
+    {
+      "DOI": "10.3390/s26072032",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.3390/s26072032"
+        }
+      ],
+      "title": "Stabilizing Defect Visibility Under Overexposure in Fringe-Based Imaging via &lt;i&gt;γ&lt;/i&gt; Nonlinearity Analysis.",
+      "url": "https://doi.org/10.3390/s26072032"
+    },
+    {
+      "DOI": "10.1117/12.2692724",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1117/12.2692724"
+        }
+      ],
+      "title": "Optimal exposure selection of high dynamic range-based reflection compensation for printed circuit board reconstruction using structured light 3D measurement system",
+      "url": "https://doi.org/10.1117/12.2692724"
+    },
+    {
+      "DOI": "10.3390/s20082385",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.3390/s20082385"
+        }
+      ],
+      "title": "Uncertainty-Aware Visual Perception System for Outdoor Navigation of the Visually Challenged",
+      "url": "https://doi.org/10.3390/s20082385"
+    },
+    {
+      "DOI": "10.21203/rs.3.rs-9887494/v1",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.21203/rs.3.rs-9887494/v1"
+        }
+      ],
+      "title": "The Deferral Frontier: Reliability-Gated Selective Prediction for Clinical AI",
+      "url": "https://doi.org/10.21203/rs.3.rs-9887494/v1"
+    },
+    {
+      "DOI": "10.1109/itsc45102.2020.9294571",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1109/itsc45102.2020.9294571"
+        }
+      ],
+      "title": "Uncertainty depth estimation with gated images for 3D reconstruction",
+      "url": "https://doi.org/10.1109/itsc45102.2020.9294571"
+    },
+    {
+      "DOI": "10.3390/s25206296",
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.3390/s25206296"
+        }
+      ],
+      "title": "Fringe-Based Structured-Light 3D Reconstruction: Principles, Projection Technologies, and Deep Learning Integration.",
+      "url": "https://doi.org/10.3390/s25206296"
+    },
+    {
+      "collections": [],
+      "creators": [],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:arxiv:2402.07307v3"
+        }
+      ],
+      "title": "Self-Calibrating Conformal Prediction",
+      "url": "https://arxiv.org/abs/2402.07307v3"
+    }
+  ],
+  "run_id": "IDEARUN-20260922-190437",
+  "schema_version": 3,
+  "sha256": "0a8d233cf64c61ca7c636be521f7484f2c1deb00580601efafb8e815f8b78139"
+}
