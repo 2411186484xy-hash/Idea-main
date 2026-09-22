@@ -20,6 +20,8 @@ LAYER = {
     "store": 1,
     "canon": 1,
     "runs": 2,
+    "sources": 2,
+    "net": 2,
     "search": 2,
     "papers": 2,
     "claims": 2,
@@ -32,6 +34,13 @@ LAYER = {
 }
 
 PROJECT_IMPORT_RE = re.compile(r"^pipelines[..]?(\w*)")
+
+HORIZONTAL_OK = {
+    # search -> sources: adapter/transport split at the 300-line cap (M3.1)
+    ("search", "sources"),
+    # sources -> net: transport seam shared by every adapter (M3.1)
+    ("sources", "net"),
+}
 
 
 def _project_imports(tree: ast.AST) -> set[str]:
@@ -75,8 +84,8 @@ def test_import_direction():
             assert target in LAYER, f"{name} imports unknown module {target}"
             own, other = LAYER[name], LAYER[target]
             if own == 2 and name != "runs" and other == 2:
-                assert target == "runs", (
-                    f"{name} -> {target}: L2 horizontal imports are only allowed to runs"
+                assert target == "runs" or (name, target) in HORIZONTAL_OK, (
+                    f"{name} -> {target}: L2 horizontal imports need a whitelisted edge"
                 )
             else:
                 assert other < own, f"{name} (L{own}) imports upward: {target} (L{other})"

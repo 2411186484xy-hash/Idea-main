@@ -36,8 +36,16 @@
   },
   "search": {
     "active": {
-      "value": ["openalex", "arxiv", "crossref", "europepmc"],
-      "why": "M2a 落地：crossref 撤稿 update-to/updated-by 通道 + europepmc 第四通道均有真记录与 mock 测试后进 ACTIVE"
+      "value": ["openalex", "arxiv", "crossref", "europepmc", "doaj"],
+      "why": "M3.1：DOAJ 实测 1.3s 稳定（2026-09-23 本机 probe）、纯 OA 期刊元数据免 key；crossref 撤稿通道 + europepmc 自 M2a 常驻"
+    },
+    "available": {
+      "value": ["openreview"],
+      "why": "按需源：OpenReview 覆盖 CS 会议/预印本，--backend 显式可达；DBLP 被 Anubis 机器人墙拦截（2026-09-23 实测 http 拦截页）不予接线"
+    },
+    "max_concurrency": {
+      "value": 4,
+      "why": "并发扇出上限（2026-09-23 单机实测：串行 30s 量级 → 并发个位数秒）；上限抑制对源站突发压力"
     },
     "polite_pool_mailto": {
       "value": "2411186484xy@gmail.com",

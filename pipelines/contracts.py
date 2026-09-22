@@ -40,7 +40,7 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,}$")
 TOPIC_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,}$")
 RUN_ID_RE = re.compile(r"^(WEEKLYRUN|IDEARUN)-\d{8}-\d{6}$")
 CLAIM_ID_RE = re.compile(r"^CLM-\d{8}-\d{3,}$")
-IDENTIFIER_KEYS = ("doi", "pmid", "arxiv_id", "pdf_sha256")
+IDENTIFIER_KEYS = ("doi", "pmid", "arxiv_id", "openreview_id", "pdf_sha256")
 
 
 def _require(cond: bool, msg: str) -> None:
@@ -57,8 +57,9 @@ def sha256_hex(text: str) -> str:
 
 
 def make_paper_key(identifiers: dict[str, Any]) -> str:
-    """Identifier precedence: doi > arxiv > pmid > sha12 (pdf_sha256[:12])."""
-    for key, prefix in (("doi", "doi"), ("arxiv_id", "arxiv"), ("pmid", "pmid")):
+    """Identifier precedence: doi > arxiv > pmid > openreview > sha12 (pdf_sha256[:12])."""
+    for key, prefix in (("doi", "doi"), ("arxiv_id", "arxiv"), ("pmid", "pmid"),
+                        ("openreview_id", "openreview")):
         val = str(identifiers.get(key) or "").strip()
         if val:
             return f"{prefix}:{val.lower()}"

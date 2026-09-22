@@ -52,12 +52,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--strict", action="store_true")
 
     s = sub.add_parser("search", help="recall pool over ACTIVE backends")
-    s.add_argument("query")
+    s.add_argument("query", nargs="?", default="")
     s.add_argument("--limit", type=int, default=15)
     s.add_argument("--backend", action="append")
     s.add_argument("--run", help="log the query into this run's query_log")
     s.add_argument("--expand", action="store_true",
                    help="fan out query-brief perspectives across backends")
+    s.add_argument("--cited-by", metavar="DOI", help="OpenAlex forward expansion: who cites this DOI")
+    s.add_argument("--references", metavar="DOI", help="OpenAlex backward expansion: what this DOI cites")
 
     s = sub.add_parser("query-brief", help="multi-perspective query pack")
     s.add_argument("query")
@@ -160,8 +162,16 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "validate":
         return _emit(validate.validate(args.strict))
     if cmd == "search":
+        if not args.query.strip() and not (args.cited_by or args.references):
+            return _emit({"ok": False, "error": "query required (or --cited-by/--references)"})
         logged = [args.query]
-        if args.expand:
+        if args.cited_by or args.references:
+            direction = ("both" if args.cited_by and args.references
+                         else ("cites" if args.cited_by else "references"))
+            seed = args.cited_by or args.references
+            result = search.expand(seed, direction, args.limit)
+            logged = [f"expand {direction} {seed}"]
+        elif args.expand:
             brief = report.query_brief(args.query, args.run)
             if not brief.get("ok"):
                 return _emit(brief)

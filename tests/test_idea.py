@@ -105,7 +105,7 @@ def test_idea_brief_four_in_one(frozen_clock):
     assert brief["ok"] and brief["collision"]["seed"] == "fringe disparity"
     assert brief["lessons"][-1]["lesson"] == "taught"
     assert len(brief["attacks"]) == 6
-    assert {q["backend"] for q in brief["novelty_plan"]} == {"openalex", "arxiv", "crossref", "europepmc"}
+    assert {q["backend"] for q in brief["novelty_plan"]} == {"openalex", "arxiv", "crossref", "europepmc", "doaj"}
     assert report.idea_brief("", "s", "t")["ok"] is False
 
 
