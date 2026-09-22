@@ -226,15 +226,21 @@ def idea_brief(seed: str, source_domain: str = "", target_domain: str = "",
     if not target:
         target = str((topic_entry or {}).get("name") or "") or seed_text
     parts = {"seed": seed_text, "source_domain": source or seed_text, "target_domain": target}
-    base = f"{parts['seed']} {parts['source_domain']} {parts['target_domain']}"
     backends = [str(b) for b in canon.value("search.active")]
+    # Novelty checks must be retrievable: build them from the topic's English key
+    # terms + the collision bank's slug, never from the Chinese prose triple.
+    key_terms = [str(t).strip() for t in ((topic_entry or {}).get("key_terms") or []) if str(t).strip()]
+    anchor = key_terms[0] if key_terms else ""
+    method = str((sample or {}).get("id") or "").replace("-", " ")
+    query_base = " ".join(x for x in (anchor, method) if x).strip() or seed_text
+    review_query = f"{anchor or seed_text} review"
     out: dict[str, Any] = {
         "ok": True,
         "collision": parts,
         "lessons": _lessons(),
         "attacks": list(_ATTACKS),
-        "novelty_plan": [{"query": f"{base} prior work", "backend": b} for b in backends]
-        + [{"query": f"{parts['seed']} {b} review", "backend": b} for b in backends],
+        "novelty_plan": [{"query": f"{query_base} prior work", "backend": b} for b in backends]
+        + [{"query": review_query, "backend": b} for b in backends],
         "disproof_pack": {
             "fields": list(contracts.DISPROOF_FIELDS),
             "prompts": {

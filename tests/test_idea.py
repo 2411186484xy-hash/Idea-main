@@ -96,6 +96,22 @@ def test_idea_add_marks_hold_dims(frozen_clock):
     assert clean["ok"] and "hold" not in clean
 
 
+def test_idea_add_records_seed_in_run(frozen_clock):
+    """run.idea_seeds must count delivered ideas: session-log 'ideas' reads it."""
+    from pipelines import runs
+
+    runs.start("idea", "IDEARUN-20260921-120000")
+    out = idea.add_idea(_payload(slug="seed-counted"), lessons_read=True,
+                        run_id="IDEARUN-20260921-120000")
+    assert out["ok"]
+    run = runs.load("IDEARUN-20260921-120000")
+    assert [s["slug"] for s in run.idea_seeds] == ["seed-counted"]
+    assert idea.add_idea(_payload(slug="seed-counted"), lessons_read=True)["ok"] is False
+    finished = runs.finish("IDEARUN-20260921-120000")
+    assert finished["ok"] and finished["ideas"] == 1
+    assert finished["papers"] == 0
+
+
 def test_idea_brief_four_in_one(frozen_clock):
     from pipelines import report, store
 
@@ -130,6 +146,20 @@ def test_idea_brief_samples_bank_deterministically(frozen_clock):
     assert topic_brief["ok"] and topic_brief["topic"]["id"] == "single-shot-sl"
     assert topic_brief["collision"]["seed"] == "单帧结构光/条纹投影三维重建（含内窥镜场景）"
     assert report.idea_brief("", topic="ghost-topic")["ok"] is False
+
+
+def test_idea_brief_novelty_queries_are_retrievable(frozen_clock):
+    """Novelty checks must be searchable text: English key terms, not topic prose."""
+    from pipelines import report
+
+    brief = report.idea_brief("", topic="single-shot-sl")
+    queries = [q["query"] for q in brief["novelty_plan"]]
+    assert all(q.isascii() for q in queries), queries
+    assert all("fringe projection profilometry" in q for q in queries)
+    assert any("prior work" in q for q in queries)
+    assert not any("／" in q or "（" in q for q in queries)
+    named = report.idea_brief("explicit prose seed", "src", "tgt")
+    assert all("explicit prose seed" in q["query"] for q in named["novelty_plan"])
 
 
 def test_avoidance_blocks_near_duplicate_titles(frozen_clock):

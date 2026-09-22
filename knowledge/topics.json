@@ -58,6 +58,58 @@
         "CVPR", "ICCV", "ECCV", "MICCAI",
         "Optics Express", "Optics Letters", "IEEE TIM", "Optics and Lasers in Engineering"
       ]
+    },
+    {
+      "id": "single-pixel-imaging",
+      "name": "单像素成像/计算鬼成像（高速与低通量重建）",
+      "status": "active",
+      "problem": "单像素/鬼成像在高速与低通量条件下的重建质量与采样预算：图案设计、重建先验与不确定性",
+      "key_terms": [
+        "single-pixel imaging",
+        "computational ghost imaging",
+        "Hadamard pattern design",
+        "deep learning single-pixel reconstruction",
+        "SPAD single-photon imaging"
+      ],
+      "target_domains": [
+        "computational imaging",
+        "ghost imaging",
+        "single-photon depth imaging"
+      ],
+      "frontier_domains": [
+        "learned measurement matrices / compressed sensing",
+        "physics-informed neural networks",
+        "event-based vision",
+        "foundation-model priors for inverse problems"
+      ],
+      "transfer_pairs": [
+        {
+          "from_field": "ML uncertainty quantification",
+          "method_terms": ["conformal prediction", "risk-controlling prediction sets"],
+          "to_problem": "低采样率重建的逐像素可信区间"
+        },
+        {
+          "from_field": "structured light / fringe projection",
+          "method_terms": ["phase-coded patterns", "single-shot demodulation"],
+          "to_problem": "单像素图案设计与单帧解调的先验迁移"
+        },
+        {
+          "from_field": "MRI / CT accelerated imaging",
+          "method_terms": ["learned sampling trajectories", "plug-and-play priors"],
+          "to_problem": "采样图案优化与即插即用先验"
+        },
+        {
+          "from_field": "quantum / photon-counting imaging",
+          "method_terms": ["photon statistics modeling", "SPAD coincidence detection"],
+          "to_problem": "低通量下的噪声建模与重建"
+        }
+      ],
+      "negative_terms": ["LiDAR point cloud only", "radar/RF imaging", "purely analog reconstruction"],
+      "anchor_papers": [],
+      "venues": [
+        "Optics Express", "Optica", "Light: Science & Applications",
+        "IEEE TCI", "Photonics Research", "CVPR"
+      ]
     }
   ]
 }

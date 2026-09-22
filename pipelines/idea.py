@@ -97,6 +97,9 @@ def add_idea(payload: dict[str, Any], run_id: str | None = None,
     if run_id:
         run = runs.load(run_id)
         if run is not None and run.status == "active":
+            if not any(str(seed.get("slug")) == idea.slug for seed in run.idea_seeds):
+                run.idea_seeds.append({"slug": idea.slug, "title": idea.title,
+                                       "at": store.now()})
             runs.append_trace(run, "IDEA_ADD", idea.slug)
             runs.save(run)
     hold_dims = sorted(d for d, card in idea.quality_card.items()

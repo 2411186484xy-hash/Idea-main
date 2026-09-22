@@ -1,1 +1,2 @@
 {"at": "2026-09-22T11:47:52Z", "reason": "研究者回填 accept：认可把全局有效点数阈值（>480/380-430/<300）升级为逐区域可用域掩膜+风险保证的增量，愿意推进；下一步按攻击#2 补『仅置信度加权、不做可用域判定』的等价性消融，按攻击#3 预设否证阈值（域内 P95<0.4mm 且覆盖率>50%，AUC 相对全局点数提升≥0.05）。", "schema_version": 3, "slug": "region-availability-gate-single-shot-sl", "verdict": "accept"}
+{"at": "2026-09-22T17:21:48Z", "reason": "自动端到端验证产生的交付物；新颖性与可行性待研究者在会话内判定（W6 e2e，无人工判断注入）", "schema_version": 3, "slug": "seismo-spi-joint-inversion", "verdict": "uncertain"}

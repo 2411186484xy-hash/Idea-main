@@ -108,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--run", help="append IDEA_ADD trace to this run")
     s.add_argument("--lessons-read", action="store_true",
                    help="confirm idea-brief lessons were read")
-    s = sub.add_parser("publish", help="deliver the 4-file pack to the delivery root + mirror")
+    s = sub.add_parser("publish", help="deliver the 5-file pack to the delivery root + mirror")
     s.add_argument("slug")
     s.add_argument("--run", help="append PUBLISH trace to this run")
 

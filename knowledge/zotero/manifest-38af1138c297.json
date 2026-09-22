@@ -1,0 +1,50 @@
+{
+  "created_at": "2026-09-22T17:22:31Z",
+  "items": [
+    {
+      "DOI": "10.1364/prj.440123",
+      "collections": [],
+      "creators": [
+        {
+          "creatorType": "author",
+          "firstName": "Fei",
+          "lastName": "Wang"
+        },
+        {
+          "creatorType": "author",
+          "firstName": "Chenglong",
+          "lastName": "Wang"
+        },
+        {
+          "creatorType": "author",
+          "firstName": "Chenjin",
+          "lastName": "Deng"
+        },
+        {
+          "creatorType": "author",
+          "firstName": "Shensheng",
+          "lastName": "Han"
+        },
+        {
+          "creatorType": "author",
+          "firstName": "Guohai",
+          "lastName": "Situ"
+        }
+      ],
+      "itemType": "journalArticle",
+      "tags": [
+        {
+          "tag": "idea-os:doi:10.1364/prj.440123"
+        },
+        {
+          "tag": "idea-os:topic:single-pixel-imaging"
+        }
+      ],
+      "title": "Single-pixel imaging using physics enhanced deep learning",
+      "url": "https://doi.org/10.1364/prj.440123"
+    }
+  ],
+  "run_id": "IDEARUN-20260923-012231",
+  "schema_version": 3,
+  "sha256": "38af1138c2972d7f0c02a0f54479693cd91dbcb642cb46ed52f22d5333287b4f"
+}
