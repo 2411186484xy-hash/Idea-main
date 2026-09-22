@@ -32,11 +32,19 @@ _ATTACKS = (
 )
 
 
-def query_brief(base: str, run_id: str | None = None) -> dict[str, Any]:
-    """M2a: mechanical multi-perspective pack + query_log dedup flags (pure read)."""
+def query_brief(base: str, run_id: str | None = None, topic: str = "") -> dict[str, Any]:
+    """M2a + M3.5: mechanical multi-perspective pack + query_log dedup flags.
+
+    --topic derives the base query from the topic pack (key_terms) and appends
+    one explicit transfer-family query per transfer_pair, so cross-domain
+    retrieval is a first-class perspective, not a manual afterthought."""
+    entry = _topic_entry(topic)
     query = (base or "").strip()
+    if not query and entry:
+        terms = [str(t) for t in (entry.get("key_terms") or [])]
+        query = " ".join(terms[:3])
     if not query:
-        return {"ok": False, "error": "query required"}
+        return {"ok": False, "error": "query (or a known --topic) required"}
     logged: list[dict[str, Any]] = []
     if run_id:
         run = runs.load(run_id)
@@ -44,15 +52,30 @@ def query_brief(base: str, run_id: str | None = None) -> dict[str, Any]:
             return {"ok": False, "error": f"run not found: {run_id}"}
         logged = list(run.query_log)
     seen: dict[str, list[dict[str, Any]]] = {}
-    for entry in logged:
-        seen.setdefault(str(entry.get("query", "")).casefold().strip(), []).append(entry)
+    for entry_row in logged:
+        seen.setdefault(str(entry_row.get("query", "")).casefold().strip(), []).append(entry_row)
     perspectives = []
     for route, suffix in _QUERY_ROUTES:
         text = query + suffix
         hits = seen.get(text.casefold().strip(), [])
         perspectives.append({"route": route, "query": text, "duplicate": bool(hits), "hits": hits})
-    return {"ok": True, "base": query, "run_id": run_id,
-            "perspectives": perspectives, "logged_queries": len(logged)}
+    if entry:
+        anchor = str((entry.get("key_terms") or [entry.get("name", "")])[0])
+        for pair in entry.get("transfer_pairs") or []:
+            if not isinstance(pair, dict):
+                continue
+            terms = [str(t) for t in (pair.get("method_terms") or [])][:2]
+            if not terms:
+                continue
+            text = f"{' '.join(terms)} {anchor}"
+            hits = seen.get(text.casefold().strip(), [])
+            perspectives.append({"route": f"transfer:{pair.get('from_field', '')}",
+                                 "query": text, "duplicate": bool(hits), "hits": hits})
+    out: dict[str, Any] = {"ok": True, "base": query, "run_id": run_id,
+                           "perspectives": perspectives, "logged_queries": len(logged)}
+    if entry:
+        out["topic"] = {"id": entry.get("id"), "name": entry.get("name")}
+    return out
 
 
 def _count_jsonl(path) -> int:
@@ -95,6 +118,20 @@ def _todos(coverage: dict[str, Any], knowledge: dict[str, int]) -> list[str]:
     return pending
 
 
+def _topic_lines() -> list[dict[str, Any]]:
+    """Topic pack overview for the first screen (加主题=加数据)."""
+    try:
+        bank = store.read_json(canon.data_path("knowledge.topics_file"))
+    except (ValueError, OSError):
+        return []
+    out: list[dict[str, Any]] = []
+    for entry in bank.get("topics") or []:
+        if isinstance(entry, dict):
+            out.append({"id": entry.get("id"), "name": entry.get("name"),
+                        "status": entry.get("status") or "active"})
+    return out
+
+
 def session_brief() -> dict[str, Any]:
     coverage = feedback.stats()
     knowledge = {
@@ -110,6 +147,7 @@ def session_brief() -> dict[str, Any]:
         "ok": True,
         "coverage": coverage,
         "active_runs": runs.active_runs(),
+        "topics": _topic_lines(),
         "lessons": _lessons(),
         "todos": _todos(coverage, knowledge),
         "knowledge": knowledge,

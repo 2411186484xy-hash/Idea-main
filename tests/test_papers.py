@@ -79,6 +79,28 @@ def test_pdf_archive_gate_rejects_incomplete(frozen_clock, tmp_path):
     assert runs.load(RUN).paper_candidates == []
 
 
+def test_batch_adds_and_replays_idempotently(frozen_clock, tmp_path):
+    from pipelines import canon
+
+    runs.start("weekly", RUN)
+    pdf = tmp_path / "b3.pdf"
+    pdf.write_bytes(GOOD_PDF)
+    batch = [
+        _payload(identifiers={"doi": "10.1/b1"}),
+        _payload(identifiers={"doi": "10.1/b2"}),
+        {**_payload(identifiers={"doi": "10.1/b3"}), "pdf": str(pdf)},
+    ]
+    first = papers.add_batch(RUN, batch)
+    assert first["ok"] and first["added"] == 3 and first["count"] == 3
+    assert (canon.paper_root() / "library" / "doi_10.1_b3" / "b3.pdf").is_file()
+    replay = papers.add_batch(RUN, batch)
+    assert not replay["ok"] and replay["added"] == 0 and replay["failed"] == 3
+    assert replay["count"] == 3  # idempotent in state: replay changes nothing
+    assert all("duplicate" in r["error"] for r in replay["results"])
+    assert not papers.add_batch(RUN, [])["ok"]
+    assert not papers.add_batch("WEEKLYRUN-20260921-999999", batch)["ok"]
+
+
 def test_screen_rank_stable_over_twenty(frozen_clock):
     runs.start("weekly", RUN)
     for i in range(20):

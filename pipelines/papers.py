@@ -90,6 +90,42 @@ def add_paper(run_id: str, payload: dict[str, Any], pdf: str | None = None) -> d
     return out
 
 
+def add_batch(run_id: str, entries: list[Any]) -> dict[str, Any]:
+    """M3.5 batch mode: every entry passes the same gates; one summary report.
+
+    Entry = candidate payload (+ optional "pdf" path). Replay is idempotent in
+    state: keys already in the run come back as duplicates and change nothing.
+    """
+    if not isinstance(entries, list) or not entries:
+        return _fail("batch must be a non-empty JSON list of candidate payloads")
+    run = runs.load(run_id)
+    if run is None:
+        return _fail(f"run not found: {run_id}")
+    if run.status != "active":
+        return _fail(f"run is {run.status}; resume it before adding papers")
+    results: list[dict[str, Any]] = []
+    added, failed = 0, 0
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            results.append({"index": i, "ok": False, "error": "entry must be a JSON object"})
+            failed += 1
+            continue
+        payload = {k: v for k, v in entry.items() if k != "pdf"}
+        pdf = str(entry.get("pdf") or "").strip() or None
+        out = add_paper(run_id, payload, pdf=pdf)
+        if out.get("ok"):
+            added += 1
+            results.append({"index": i, "ok": True, "paper_key": out.get("paper_key")})
+        else:
+            failed += 1
+            results.append({"index": i, "ok": False, "error": out.get("error"),
+                            "paper_key": out.get("paper_key")})
+    fresh = runs.load(run_id)
+    return {"ok": failed == 0 and added > 0, "run_id": run_id, "added": added,
+            "failed": failed, "count": len(fresh.paper_candidates) if fresh else 0,
+            "results": results}
+
+
 def _score(cand: contracts.PaperCandidate, current_year: int) -> int:
     score = 0
     if cand.evidence:

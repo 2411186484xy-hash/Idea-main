@@ -1,8 +1,7 @@
 """L4 cli: pure argparse surface, UTF-8 stdout. Logic lives in pipelines/.
 
-The 21-command table in README.md is the contract (tests/test_docs keeps
-parser and README in sync). Commands whose domain module lands in a later
-milestone answer with an explicit not-implemented envelope.
+The 23-command table in README.md is the contract (tests/test_docs keeps
+parser and README in sync; no command is left as a stub).
 """
 
 from __future__ import annotations
@@ -26,9 +25,7 @@ from pipelines import (  # noqa: E402
     validate,
 )
 
-NOT_IMPLEMENTED: dict[str, str] = {
-    # M2h lands the last two: every parser command now has logic in main().
-}
+NOT_IMPLEMENTED: dict[str, str] = {}  # every parser command has logic in main() (M2h)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("kind", choices=["weekly", "idea"])
     s.add_argument("run_id")
     s.add_argument("--resume", action="store_true")
+    s.add_argument("--topic", default="", help="topic id from knowledge/topics.json")
 
     s = sub.add_parser("run-finish", help="close a run: complete, partial, or absorb")
     s.add_argument("run_id")
@@ -62,16 +60,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--references", metavar="DOI", help="OpenAlex backward expansion: what this DOI cites")
 
     s = sub.add_parser("query-brief", help="multi-perspective query pack")
-    s.add_argument("query")
+    s.add_argument("query", nargs="?", default="")
     s.add_argument("--run", help="flag repeats against this run's query_log")
+    s.add_argument("--topic", default="", help="topic id: derives base + transfer-family queries")
     s = sub.add_parser("screen-rank", help="rule-based ranking + stop criterion")
     s.add_argument("run_id")
-
     s = sub.add_parser("paper-add", help="register a candidate into a run (gated)")
     s.add_argument("run_id")
-    s.add_argument("--payload", required=True, help="JSON object")
+    s.add_argument("--payload", help="JSON object")
+    s.add_argument("--batch", help="JSON file: list of payloads (each may carry a 'pdf' path)")
     s.add_argument("--pdf", help="archive PDF to the paper library + mirror")
-
     s = sub.add_parser("deepread-brief", help="writer/verifier blind-separated pack")
     s.add_argument("--paper-key", required=True)
     s.add_argument("--text", default="")
@@ -91,7 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--run", help="append PDF_FETCH trace to this run")
 
     s = sub.add_parser("claims-add", help="append a page-anchored claim (lint-gated)")
-    s.add_argument("--payload", required=True, help="JSON object")
+    s.add_argument("--payload", help="JSON object")
+    s.add_argument("--batch", help="JSON file: list of claim payloads")
     s.add_argument("--run", help="append CLAIM_ADD trace to this run")
     s = sub.add_parser("claims-view", help="render claims (filters optional)")
     s.add_argument("--topic")
@@ -149,6 +148,14 @@ def _load_json_arg(raw: str, label: str) -> object | None:
         return None
 
 
+def _load_json_path(path: str, label: str) -> object | None:
+    try:
+        return store.read_json(Path(path))
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"ok": False, "error": f"{label} unreadable: {exc}"}, ensure_ascii=False))
+        return None
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -158,16 +165,10 @@ def main(argv: list[str] | None = None) -> int:
     cmd = args.cmd
 
     if cmd in NOT_IMPLEMENTED:
-        return _emit(
-            {
-                "ok": False,
-                "error": f"not implemented yet; scheduled for {NOT_IMPLEMENTED[cmd]}",
-                "milestone": NOT_IMPLEMENTED[cmd],
-            }
-        )
+        return _emit({"ok": False, "error": f"not implemented yet; scheduled for {NOT_IMPLEMENTED[cmd]}"})
 
     if cmd == "run-start":
-        return _emit(runs.start(args.kind, args.run_id, args.resume))
+        return _emit(runs.start(args.kind, args.run_id, args.resume, args.topic))
     if cmd == "run-finish":
         return _emit(runs.finish(args.run_id, args.partial, args.absorb))
     if cmd == "session-brief":
@@ -179,8 +180,7 @@ def main(argv: list[str] | None = None) -> int:
             return _emit({"ok": False, "error": "query required (or --cited-by/--references)"})
         logged = [args.query]
         if args.cited_by or args.references:
-            direction = ("both" if args.cited_by and args.references
-                         else ("cites" if args.cited_by else "references"))
+            direction = "both" if (args.cited_by and args.references) else ("cites" if args.cited_by else "references")
             seed = args.cited_by or args.references
             result = search.expand(seed, direction, args.limit)
             logged = [f"expand {direction} {seed}"]
@@ -208,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "screen-rank":
         return _emit(papers.screen_rank(args.run_id))
     if cmd == "query-brief":
-        return _emit(report.query_brief(args.query, args.run))
+        return _emit(report.query_brief(args.query, args.run, args.topic))
     if cmd == "pdf-extract":
         from pipelines import pdf
 
@@ -229,11 +229,25 @@ def main(argv: list[str] | None = None) -> int:
                 return _emit({"ok": False, "error": f"text file unreadable: {exc}"})
         return _emit(report.deepread_brief(args.paper_key, text))
     if cmd == "paper-add":
+        if args.batch:
+            entries = _load_json_path(args.batch, "--batch")
+            if entries is None:
+                return 1
+            return _emit(papers.add_batch(args.run_id, entries))
+        if not args.payload:
+            return _emit({"ok": False, "error": "paper-add needs --payload or --batch"})
         payload = _load_json_arg(args.payload, "--payload")
         if payload is None:
             return 1
         return _emit(papers.add_paper(args.run_id, payload, args.pdf))
     if cmd == "claims-add":
+        if args.batch:
+            entries = _load_json_path(args.batch, "--batch")
+            if entries is None:
+                return 1
+            return _emit(claims.add_batch(entries, args.run))
+        if not args.payload:
+            return _emit({"ok": False, "error": "claims-add needs --payload or --batch"})
         payload = _load_json_arg(args.payload, "--payload")
         if payload is None:
             return 1

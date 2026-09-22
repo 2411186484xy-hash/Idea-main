@@ -193,3 +193,16 @@ def test_quote_missing_from_extract_rejected(frozen_clock):
 def test_claim_without_extract_cache_is_rejected(frozen_clock):
     out = claims.add_claim(_payload(paper_key="doi:10.1/nocache"))
     assert not out["ok"] and "no extract cache" in out["error"]
+
+
+def test_batch_reports_each_gate_failure(frozen_clock):
+    ok_row = _payload(id="CLM-20260921-901", quote="verbatim")
+    out = claims.add_batch([ok_row, _payload(quote="nowhere to be found at all"),
+                            _payload(page_anchor=0)])
+    assert not out["ok"] and out["added"] == 1 and out["failed"] == 2
+    assert out["results"][0]["id"] == "CLM-20260921-901"
+    assert out["results"][1]["error"].startswith("quote lint")
+    assert out["results"][2]["error"].startswith("claim rejected")
+    replay = claims.add_batch([ok_row])
+    assert not replay["ok"] and "duplicate" in replay["results"][0]["error"]
+    assert claims.add_batch([])["ok"] is False

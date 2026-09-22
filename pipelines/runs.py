@@ -44,7 +44,7 @@ def append_trace(run: contracts.Run, event: str, detail: str | None = None) -> N
     run.trace.append(entry)
 
 
-def start(kind: str, run_id: str, resume: bool = False) -> dict[str, Any]:
+def start(kind: str, run_id: str, resume: bool = False, topic: str = "") -> dict[str, Any]:
     prefix_ok = run_id.startswith("WEEKLYRUN-") or run_id.startswith("IDEARUN-")
     if not prefix_ok:
         return _fail(f"bad run_id (need WEEKLYRUN-/IDEARUN- prefix): {run_id}")
@@ -58,12 +58,14 @@ def start(kind: str, run_id: str, resume: bool = False) -> dict[str, Any]:
                 attempt=1,
                 created_at=store.now(),
                 updated_at=store.now(),
+                topic=(topic.strip() or None),
             )
         except ValueError as exc:
             return _fail(f"bad run: {exc}")
         append_trace(run, "RUN_START")
         save(run)
-        return {"ok": True, "run_id": run_id, "attempt": 1, "resumed": False}
+        return {"ok": True, "run_id": run_id, "attempt": 1, "resumed": False,
+                "topic": run.topic}
     if existing.status == "active":
         return _fail(f"run already active: {run_id}")
     if existing.status == "completed":
@@ -71,11 +73,19 @@ def start(kind: str, run_id: str, resume: bool = False) -> dict[str, Any]:
     if existing.status == "partial":
         if not resume:
             return _fail(f"run is partial; use --resume to continue or --absorb to close: {run_id}")
+        topic_text = topic.strip()
+        if topic_text and existing.topic is None:
+            try:
+                contracts.Run(**{**store.to_dict(existing), "topic": topic_text})
+            except ValueError as exc:
+                return _fail(f"bad topic: {exc}")
+            existing.topic = topic_text
         existing.attempt += 1
         existing.status = "active"
         append_trace(existing, "RUN_RESUME", f"attempt {existing.attempt}")
         save(existing)
-        return {"ok": True, "run_id": run_id, "attempt": existing.attempt, "resumed": True}
+        return {"ok": True, "run_id": run_id, "attempt": existing.attempt,
+                "resumed": True, "topic": existing.topic}
     return _fail(f"unknown status: {existing.status}")
 
 

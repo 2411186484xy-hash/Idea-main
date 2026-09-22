@@ -114,6 +114,22 @@ def test_bad_run_id_rejected(frozen_clock):
     assert not result["ok"]
 
 
+def test_run_start_and_resume_carry_topic(frozen_clock, capsys):
+    from cli import main
+
+    assert main(["run-start", "weekly", RUN, "--topic", "single-shot-sl"]) == 0
+    capsys.readouterr()
+    assert runs.load(RUN).topic == "single-shot-sl"
+    assert not runs.start("weekly", "WEEKLYRUN-20260921-130000", topic="Bad Topic")["ok"]
+    fresh = runs.start("weekly", "WEEKLYRUN-20260921-140000")
+    assert fresh["ok"] and fresh["topic"] is None
+    assert runs.finish("WEEKLYRUN-20260921-140000", "gap")["ok"]
+    resumed = runs.start("weekly", "WEEKLYRUN-20260921-140000", resume=True,
+                         topic="single-shot-sl")
+    assert resumed["ok"] and resumed["topic"] == "single-shot-sl"
+    assert runs.load("WEEKLYRUN-20260921-140000").topic == "single-shot-sl"
+
+
 def test_kind_prefix_mismatch_rejected(frozen_clock):
     result = runs.start("weekly", "IDEARUN-20260921-120000")
     assert not result["ok"] and "prefix/kind" in result["error"]

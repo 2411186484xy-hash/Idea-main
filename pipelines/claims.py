@@ -122,6 +122,32 @@ def add_claim(payload: dict[str, Any], run_id: str | None = None) -> dict[str, A
     return {"ok": True, "id": claim.id, "paper_key": claim.paper_key, "quote_lint": "page-scoped"}
 
 
+def add_batch(entries: list[Any], run_id: str | None = None) -> dict[str, Any]:
+    """M3.5 batch mode: every claim passes the same page-scope lint; one report.
+
+    Entry = claim payload. A failing entry never aborts the batch — the index
+    and the gate message come back in results (session model supplies N rows
+    in one call instead of N calls)."""
+    if not isinstance(entries, list) or not entries:
+        return _fail("batch must be a non-empty JSON list of claim payloads")
+    results: list[dict[str, Any]] = []
+    added, failed = 0, 0
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            results.append({"index": i, "ok": False, "error": "entry must be a JSON object"})
+            failed += 1
+            continue
+        out = add_claim(entry, run_id=run_id)
+        if out.get("ok"):
+            added += 1
+            results.append({"index": i, "ok": True, "id": out.get("id")})
+        else:
+            failed += 1
+            results.append({"index": i, "ok": False, "error": out.get("error")})
+    return {"ok": failed == 0 and added > 0, "added": added, "failed": failed,
+            "results": results}
+
+
 def load_claims() -> list[dict[str, Any]]:
     return store.read_jsonl(store.claims_path())
 

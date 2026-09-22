@@ -1,4 +1,4 @@
-# V2 底层设计 v2.0（2026-09-21）
+# V2 底层设计 v2.1（2026-09-23）
 
 > 哲学（定调）：**一开始就做对，所以以后没必要改——不是加锁不许改。数据吸收完就删，不冻结、不归档、文件不堆积。**
 > V1 的有效资产全部继承（§1.2，15 项）；V1 与 v1.1 方案里的机制脂肪一律不带（§1.1，10 类删除）。
@@ -16,15 +16,17 @@
 
 ```
 区1 仓（代码治理区）d:\AppData\Project\Idea
-  cli.py                    21 命令，stdout UTF-8
+  cli.py                    23 命令，stdout UTF-8
   pyproject.toml            核心 stdlib-only；extras: pdf→pymupdf, zotero→pyzotero
-  pipelines/                13 模块（≤300 行/个）
-    contracts  store  canon  search  pdf  papers  claims  idea
+  pipelines/                15 模块（≤300 行/个）
+    contracts  store  canon  net  search  sources  pdf  papers  claims  idea
     feedback  zotero  runs  report  validate
   governance/  workflow_authority.json   canon（数值+why，≤200 行；文件名遵 AGENTS.md）
   knowledge/   [持久·git 跟踪·文本可 diff]
     corpus-claims.jsonl(追加)  idea-pool.json(仅在途)  feedback.jsonl(追加)
     failure-ledger.jsonl(追加)  session-log.jsonl(一行/run)  jcr-registry.json
+    topics.json(主题包·加主题=加数据)  collision-bank.json(碰撞源域库)
+    .cache/(工作缓存·git 排除：抽取页文本/页 PNG)
   runs/        [临时·git 排除·收口即删] 当前活跃 run 的工作状态
   docs/        README(命令表)  ENVIRONMENT  GITHUB-SURVEY  FINAL-REPORT
                PITFALL-REVIEW  FOUNDATION-DESIGN  MASTER-PLAN（共 7 件，不增）
@@ -33,13 +35,13 @@
 
 区2 E 盘交付区（只写交付物，永不写状态/账本）
   E:\Paper   _inbox\(研究者投入的新 PDF) → library\<paper_key>\（paper-add 归档）
-  E:\Idea    \<slug>\（publish 4 件套 + researcher-decision.json；V1 已有 29 目录）
+  E:\Idea    \<slug>\（publish 5 件套 + researcher-decision.json；V1 已有 29 目录）
   下游两仓只读 E:\Idea，永不回写。
 
 区3 E 盘备份区（镜像，V1 已在用）
   E:\Backup\Paper ← E:\Paper（paper-add 归档即镜像）
   E:\Backup\Idea  ← E:\Idea（publish 即镜像）
-  backup-verify：新鲜度检查 + 抽样恢复验证。
+  backup-verify：新鲜度检查 + 全件 SHA 恢复验证。
 
 禁入（canon forbidden_input_roots）：E:\Project、trae-input、C:\Users\User\Documents\3D重建科研。
 ```
@@ -112,21 +114,23 @@ V1 已证伪：week_modes、parallel 数值、L2 hard 单通道、模板族、co
 ```
 L0 contracts.py   零依赖零 IO：全部记录类型 + ErrorEnvelope + trace 事件常量
 L1 store.py       唯一磁盘 IO：原子写(tmp+os.replace)/追加(fsync)/读回（时钟可注入）
-L1 canon.py       canon 读取 + check_identity_sync（四根 + 常量）
-L2 search.py      SearchPort 适配器 + 归一化 + 撤稿双通道 + 网络纪律
-L2 pdf.py         PdfPort：PyMuPDF 文本层 → MinerU 第二通道（探针降级）
-L2 papers.py      候选管理 + screen-rank 排序/停止准则 + 标识符/撤稿门禁
-L2 claims.py      claims 追加账本 + 页锚/quote lint + claims-view 渲染
-L2 idea.py        idea-brief 生成 + idea-add 校验 + failure-ledger + publish
+L1 canon.py       canon 读取 + check_identity_sync（四根 + 常量 + data_path 数据文件锚）
+L2 net.py         传输缝：直连 + SSL 证书兜底 + ErrorEnvelope（HTTP/解析错误不 raise）
+L2 sources.py     源适配器（openalex/arxiv/crossref/europepmc/doaj + 按需 openreview）
+L2 search.py      通道扇出/去重/摘要 600 截断/引文扩展（ACTIVE 由 canon 驱动）
+L2 pdf.py         PdfPort：完整性门 → PyMuPDF 文本层（缓存/页渲染）+ OA 瀑布抓取
+L2 papers.py      候选管理 + screen-rank 排序/停止准则 + 标识符/撤稿门禁（含批量）
+L2 claims.py      claims 追加账本 + 页作用域 quote lint + claims-view 渲染（含批量）
+L2 idea.py        idea-add 校验 + failure-ledger avoidance + publish 五件
 L2 feedback.py    feedback 账本 + coverage + V1 存量导入
-L2 zotero.py      manifest + 写面 + 回读
+L2 zotero.py      manifest + 写面 + 回读 + CONFIRMED 证据笔记 note.md
 L2 runs.py        状态机 + absorb→delete + session-log（领域模块唯一横向依赖）
-L3 report.py      session-brief / query-brief / deepread-brief 渲染（纯读）
-L3 validate.py    结构校验（纯读：canon 同步/悬挂 run/账本完整性）
+L3 report.py      session-brief / query-brief / deepread-brief / idea-brief（纯读）
+L3 validate.py    结构校验（纯读：canon 同步/悬挂 run/账本完整性/主题与碰撞库 schema）
 L4 cli.py         纯 argparse，stdout UTF-8
 ```
 
-规则：只准向下导入；contracts 零项目依赖；唯一横向例外 = L2 领域模块 → runs.py；任何模块不得导入 cli。`tests/test_architecture.py` 用 ast 强制依赖方向 + grep 禁裸写 + 行数预算（pipelines+cli ≤4k，tests ≤3k）。
+规则：只准向下导入；contracts 零项目依赖；唯一横向例外 = L2 领域模块 → runs.py；M3 白名单边（search→sources、sources→net、pdf→net、papers→pdf、zotero→claims）逐条在 `tests/test_architecture.py` 注明理由。任何模块不得导入 cli。`tests/test_architecture.py` 用 ast 强制依赖方向 + grep 禁裸写 + 行数预算（pipelines+cli ≤4k，tests ≤3k）。
 
 ---
 
@@ -136,27 +140,31 @@ L4 cli.py         纯 argparse，stdout UTF-8
 
 ```python
 Run（临时）: schema_version, run_id, kind(weekly|idea), status(active|partial|completed),
-  attempt, created_at, updated_at, completed_at?, gap_note?,
+  attempt, created_at, updated_at, completed_at?, gap_note?, topic?(主题包 id),
   paper_candidates[], coverage{direct,counter_boundary,transfer,frontier},
   idea_seeds[], query_log[{query,backend,at}], trace[{at,event,detail}], uncertainty_disclosure[]
   # trace 事件常量：RUN_START/RUN_RESUME/PAPER_ADD/SCREEN/SEARCH/RETRACT_HIT/
-  #               PDF_EXTRACT/CLAIM_ADD/IDEA_ADD/PUBLISH/ZOTERO_WRITE/ZOTERO_READBACK/FEEDBACK
+  #   PDF_EXTRACT/PDF_FETCH/CLAIM_ADD/IDEA_ADD/PUBLISH/ZOTERO_WRITE/ZOTERO_READBACK/FEEDBACK
 
-PaperCandidate: schema_version, title, paper_key(doi:>arxiv:>pmid:>sha12: 前缀规范),
-  identifiers{doi?|pmid?|arxiv_id?|pdf_sha256?}(≥1), year?, venue?, cited_by_count?,
-  discovery_class(四路由), source_backend, abstract, abstract_sha256,
+PaperCandidate: schema_version, title, paper_key(doi:>arxiv:>pmid:>openreview:>sha12: 前缀规范),
+  identifiers{doi?|pmid?|arxiv_id?|openreview_id?|pdf_sha256?}(≥1), year?, venue?, cited_by_count?,
+  discovery_class(四路由), source_backend, sources[{channel,query,at}] 来源轨迹,
+  abstract, abstract_sha256,
   retraction{status(none|flagged|confirmed), checked_backends[], checked_at},
   screen_status?(pending|ranked|selected|rejected),
   evidence?{one_line_evidence, evidence_role}   # L2 卡折叠为字段
 
 Claim: schema_version, id(CLM-YYYYMMDD-NNN), paper_key, topic(必填), text,
-  quote(必填·逐字), page_anchor(必填), confidence(high|medium|low),
+  quote(必填·逐字·页作用域 lint 对抽取缓存 ±1 页核验), page_anchor(必填),
+  confidence(high|medium|low),
   verifier_verdict(CONFIRMED|DEVIATED|NOT_FOUND), verifier_note?, created_at
 
 IdeaCandidate: schema_version, slug(^[a-z0-9][a-z0-9-]{2,}$), title, hypothesis,
   collision{seed, source_domain, target_domain},
+  disproof{experiment, controls, decision_rule, failure_interpretation}(必填·纯设计),
+  screening_note?(全 empty 查新时的降级记录),
   quality_card{novelty,rigor,feasibility,clarity,data_availability,venue_fit}(1-5+rationale),
-  attacks[6], novelty_log[{query,backend,top_match,note}],
+  attacks[6], novelty_log[{query,backend,result(hit|empty|error),confidence(strong|weak),top_match?,note}],
   evidence_refs[](corpus gate 3+1+1), status(draft|published|accepted|rejected|uncertain)
 
 Feedback: schema_version, slug, verdict(accept|reject|uncertain), reason(必填), at
@@ -181,33 +189,34 @@ partial --run-finish --absorb "gap-note"--> 同 completed 路径（放弃收口�
 
 **idea 生命周期**：draft →(publish)→ published（交付区为真源，**pool 除名**）→ verdict 回填 feedback.jsonl；rejected → failure-ledger 记 lesson。**idea-pool.json 永远只含在途工作。**
 
-**单写者所有权**（validate 自检）：runs/ → runs.py；corpus-claims → claims.py；idea-pool → idea.py；feedback → feedback.py；failure-ledger → idea.py；zotero 件 → zotero.py；E:\Paper 归档+镜像 → paper-add；E:\Idea 交付+镜像 → publish；canon → 人工。
+**单写者所有权**（validate 自检）：runs/ → runs.py；corpus-claims → claims.py；idea-pool → idea.py；feedback → feedback.py；failure-ledger → feedback.py（reject 回填）/ idea.py（读取）；zotero 件 → zotero.py；E:\Paper 归档+镜像 → paper-add；library note.md → zotero-notes；E:\Idea 交付+镜像 → publish；canon → 人工。
 
 ---
 
 ## 5. 端口（易变隔离）
 
-- **SearchPort**：`search(backend, query) → list[PaperCandidate] + ErrorEnvelope?`。ACTIVE 由 canon 驱动（起步 openalex+arxiv；crossref 撤稿通道、europepmc 落地测试后才进 ACTIVE）。断网返回信封不 raise。
-- **PdfPort**：`extract(path) → {text_md, pages[{page_no, raw_text, errors}], fallback_chain[], errors[]}`。PyMuPDF 文本层第一通道；MinerU 探针通过才启用（冷启动 ≥120s 记 ENVIRONMENT.md）；降级记 fallback_from。
-- **ZoteroPort**：读面宽（搜索/导出/BibTeX）+ 写面窄（仅 manifest 批准条目）+ 回读归档 readback-{sha12}.json。
+- **SearchPort**：`search(backend, query) → list[PaperCandidate] + ErrorEnvelope?`。ACTIVE 五通道（openalex+arxiv+crossref+europepmc+doaj，canon 驱动）+ 按需源（openreview）；并发扇出 + 摘要 600 截断 + `--cited-by/--references` 引文扩展。断网返回信封不 raise。
+- **PdfPort**：`extract(path) → {text_md, pages[{page_no, raw_text, errors}], fallback_chain[], errors[]}` + 完整性门（%PDF/%%EOF/≥pdf.min_bytes）→ 抽取缓存与页渲染（claims 页作用域 lint 的输入）+ `pdf-fetch` OA 瀑布（Unpaywall→arXiv→EuropePMC）。MinerU 探针通过才启用（冷启动 ≥120s 记 ENVIRONMENT.md）。
+- **ZoteroPort**：读面宽（搜索/导出/BibTeX）+ 写面窄（仅 manifest 批准条目 + `idea-os:*` 受控标签）+ 回读归档 readback-{sha12}.json；证据笔记走 note.md（library+镜像、Better Notes 手动导入，半自动边界）。
 
 ## 6. 门禁（函数，非注册表）
 
-identifier / retraction（一票否决）→ papers.py 入 run 时；page_anchor + quote → claims.py lint；corpus_311 + slug → idea.py；stale → validate。每个都有"故意触发"测试。
+identifier / retraction（一票否决）→ papers.py 入 run 时；PDF 完整性门 → pdf.py（抽取/抓取/归档三入口）；page_anchor + quote 逐字 + 页作用域 → claims.py lint；novelty 三态 + 全 empty 降级记录 + failure-ledger 双阈值 avoidance + corpus_311 + slug → idea.py；stale → validate。每个都有"故意触发"测试。
 
 ## 7. 认知边界（提示包协议）
 
-认知在会话内。CLI 只产结构化任务包（report.py，带 token 预算）：session-brief（coverage 首屏 + 活跃 run + 待办）、query-brief（多视角 + 查询去重）、deepread-brief（writer/verifier 双书，verifier 盲）、idea-brief（碰撞三要素 + 教训注入 + 6 攻击 + 查新计划，四合一）。回流一律 schema 校验 + 原始/解析双存。CLI 状态消息英文，brief 正文中文。
+认知在会话内。CLI 只产结构化任务包（report.py，带 token 预算）：session-brief（coverage 首屏 + 活跃 run + 主题行 + 待办）、query-brief（多视角 + 主题 transfer 族 + 查询去重）、deepread-brief（writer/verifier 双书，verifier 盲）、idea-brief（碰撞三要素/库抽样 + 教训注入 + 6 攻击 + 查新计划 + disproof 设计件 + 质量卡盲评书）。回流一律 schema 校验 + 原始/解析双存（批量模式 `paper-add --batch` / `claims-add --batch` 一次供 N 条）。CLI 状态消息英文，brief 正文中文。
 
-## 8. CLI 21 命令（README 命令表即契约，tests/test_docs 校验一致）
+## 8. CLI 23 命令（README 命令表即契约，tests/test_docs 校验一致）
 
 ```
-run-start(--resume)  run-finish(--partial/--absorb)  session-brief  validate(--strict)
-search  query-brief  screen-rank  paper-add(--pdf)
-deepread-brief  pdf-extract  claims-add  claims-view
-idea-brief  idea-add  publish
+run-start(--resume/--topic)  run-finish(--partial/--absorb)  session-brief  validate(--strict)
+search(--backend/--expand/--cited-by/--references)  query-brief(--topic)  screen-rank
+paper-add(--pdf/--batch)  deepread-brief  pdf-extract(--run/--render/--paper-key)  pdf-fetch
+claims-add(--batch)  claims-view
+idea-brief(--topic)  idea-add  publish
 feedback-add  feedback-import-v1
-zotero-manifest  zotero-write  zotero-readback  backup-verify
+zotero-manifest  zotero-write  zotero-readback  zotero-notes  backup-verify
 ```
 
 ## 9. 治理（canon = governance/workflow_authority.json）
@@ -221,10 +230,21 @@ zotero-manifest  zotero-write  zotero-readback  backup-verify
 | claims | 214 条 | ≥214，全带 quote+页锚 |
 | run 收口 | 11 run 全终态 | 100% 收口且目录零残留 |
 | 治理体积 | canon 73.3KB + decisions 62.3KB | canon ≤200 行，无决策账 |
-| 代码规模 | ~24k 行 / 74 命令 | **≤4k 行 / 21 命令 / 13+1 模块** |
+| 代码规模 | ~24k 行 / 74 命令 | **≤4k 行 / 23 命令 / 15 模块** |
 | 响应 | — | search P95<5s；pdf 文本层<90s/篇；fast 测试<30s |
 
-## 11. v2.0 变更日志（v1.1 → v2.0）
+## 11. 变更日志
+
+### v2.0 → v2.1（2026-09-23，M3.0–M3.4；V1 审计 ×5 + GitHub 调研 ×2 + 源实测）
+
+- **检索广度**：net/sources/search 三模块拆分；+DOAJ 进 ACTIVE（五通道）、OpenReview 按需；并发扇出（canon max_concurrency）+ 摘要 600 截断 + `channel_health`；`search --cited-by/--references`；DBLP 因 Anubis 机器人墙实测弃用。
+- **深读质量**：PDF 完整性门（三入口）+ 抽取缓存/`--render` 页 PNG + claims 页作用域硬 lint（±1 页，正反例测试）+ `pdf-fetch` OA 瀑布（Unpaywall→arXiv→EuropePMC，真抓实测）。
+- **Zotero 深度**：主题标签（canon tag_prefix，`idea-os:topic:<id>`）+ `zotero-notes`（仅 CONFIRMED，note.md → library+镜像 SHA）+ README 插件互补矩阵。
+- **idea 质量**：novelty 三态（hit/empty/error + strong/weak，全 empty 须 screening_note 降级记录）+ V1 双阈值 failure-ledger avoidance（含 R1C2 停用词）+ 碰撞库确定性抽样接入 idea-brief + disproof 四字段必填与 publish 第五件 + 质量卡盲评书。
+- **自动化与接口**：`paper-add --batch` / `claims-add --batch`；`run-start --topic` / `query-brief --topic`（transfer 族）/ session-brief 主题行；命令 21→23、模块 13→15。
+- **数据层**：`knowledge/topics.json`（主题包，加主题=加数据零代码）+ `knowledge/collision-bank.json`（V1 DOMAIN_BANK 精选 18 域）+ validate schema 校验。
+
+### v2.0（2026-09-21）
 
 哲学修正：删 10 类防御/堆积机制（§1.1）；新增数据生命周期 absorb→delete（§4）；idea-pool 只留在途；failure 教训并入账本字段；命令 25→21；模块 15→13+1（gates/permissions/common 并入）；冻结哈希随机制消亡（N1/N2 类 bug 根除）；M0 从"骨架上打补丁"改为"端口式重写"。GitHub 锚点与 V1 资产继承不变（§1.2/§1.3）。
 

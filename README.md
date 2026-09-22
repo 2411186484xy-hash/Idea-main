@@ -77,6 +77,21 @@ L4 cli.py         纯 argparse 表面，23 命令
 
 AGPL/GPL 插件仅作设计参考，不合并代码（AGENTS.md：borrow-not-merge）。
 
+## 检索主题扩展（加主题=加数据，零代码）
+
+`knowledge/topics.json` 是主题包唯一真源（canon `knowledge.topics_file`）。新增研究主题 = 追加一条，改数据即生效，无迁移脚本（`validate` 校验 schema）：
+
+```json
+{"id": "your-topic-id", "name": "主题名", "status": "active",
+ "key_terms": ["检索词 1", "检索词 2", "检索词 3"],
+ "target_domains": ["目标领域"], "frontier_domains": ["前沿域 1"],
+ "transfer_pairs": [{"from_field": "外部领域", "method_terms": ["方法词 1"],
+                     "to_problem": "要迁移到的问题面"}]}
+```
+
+消费点：`run-start --topic <id>`（主题随 manifest 写成 Zotero 标签）· `query-brief --topic <id>`（base 查询 + 每条 transfer_pair 一族跨域查询）·
+`idea-brief --topic <id>`（种子/目标域缺省 + 前沿域与 transfer 注入 + 碰撞库确定性抽样）。
+
 ## 环境事实
 
 沙箱实测 6 条见 `docs/ENVIRONMENT.md`：PS 吞 stdout / 代理假 502 / SSL certifi / MinerU 冷启动≥120s / GUI 寿命 / safe-delete；网络与证书应对已内置在 `pipelines/search.py`。

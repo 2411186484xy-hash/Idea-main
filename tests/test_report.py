@@ -76,3 +76,26 @@ def test_deepread_brief_is_blind():
     assert "notes" not in pack["verifier"]
     assert report.deepread_brief("", "text")["ok"] is False
     assert report.deepread_brief("doi:10.1/x", "  ")["ok"] is False
+
+
+def test_query_brief_topic_family(frozen_clock):
+    brief = report.query_brief("", None, "single-shot-sl")
+    assert brief["ok"] and brief["topic"]["id"] == "single-shot-sl"
+    assert brief["base"].startswith("fringe projection profilometry")
+    routes = [p["route"] for p in brief["perspectives"]]
+    assert routes[:4] == ["direct", "counter_boundary", "transfer", "frontier"]
+    transfers = [r for r in routes if r.startswith("transfer:")]
+    assert len(transfers) == 4  # one explicit query per transfer_pair in the pack
+    first_transfer = next(p for p in brief["perspectives"] if p["route"].startswith("transfer:"))
+    assert first_transfer["query"].endswith("fringe projection profilometry")
+    explicit = report.query_brief("explicit query", None, "single-shot-sl")
+    assert explicit["base"] == "explicit query" and len(explicit["perspectives"]) == 8
+    assert report.query_brief("", None, "ghost-topic")["ok"] is False
+
+
+def test_session_brief_lists_topics(frozen_clock):
+    brief = report.session_brief()
+    ids = [t["id"] for t in brief["topics"]]
+    assert "single-shot-sl" in ids
+    entry = next(t for t in brief["topics"] if t["id"] == "single-shot-sl")
+    assert entry["status"] == "active" and entry["name"]
