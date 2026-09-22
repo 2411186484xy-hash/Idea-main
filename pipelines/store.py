@@ -61,6 +61,11 @@ def jcr_registry_path() -> Path:
     return knowledge_root() / "jcr-registry.json"
 
 
+def cache_dir() -> Path:
+    """Working scratch under the knowledge layer (gitignored; safe to delete)."""
+    return knowledge_root() / ".cache"
+
+
 def run_dir(run_id: str) -> Path:
     return runs_root() / run_id
 
@@ -237,3 +242,22 @@ def write_text_atomic(path: Path, text: str) -> None:
         fh.flush()
         os.fsync(fh.fileno())
     os.replace(tmp, path)
+
+
+def write_bytes_atomic(path: Path, blob: bytes) -> None:
+    """Binary twin of write_text_atomic (page renders, fetched PDFs)."""
+    ensure_dir(path.parent)
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "wb") as fh:
+        fh.write(blob)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def delete_file(path: Path) -> None:
+    """Single-file removal (gate-rejected downloads must not linger)."""
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass

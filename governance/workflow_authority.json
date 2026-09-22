@@ -78,6 +78,20 @@
       "why": "跨域碰撞源域库（V1 idea_collision.py DOMAIN_BANK 18 域迁移；open-collider 设计借鉴）；idea-brief 引用"
     }
   },
+  "pdf": {
+    "min_bytes": {
+      "value": 100000,
+      "why": "V1 LST:1770-1818 完整性门：%PDF 头 + %%EOF 尾 + ≥100KB；低于此多为错误页/占位文件"
+    },
+    "fetch_order": {
+      "value": ["unpaywall", "arxiv", "europepmc"],
+      "why": "V1 pdf_fetch 瀑布顺序移植（Unpaywall→arXiv→EuropePMC OA 全文）；首通道命中即停"
+    },
+    "render_dpi": {
+      "value": 100,
+      "why": "页渲染目检比例（100dpi 下正文可读、单页体积可控）"
+    }
+  },
   "coverage": {
     "routes": {
       "value": ["direct", "counter_boundary", "transfer", "frontier"],

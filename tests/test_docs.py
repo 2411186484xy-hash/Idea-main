@@ -23,8 +23,8 @@ def _parser_commands() -> set[str]:
 
 def test_readme_table_matches_parser():
     table = _readme_commands()
-    assert len(table) == 21, f"README table must list 21 commands, found {len(table)}"
-    assert len(set(table)) == 21, "README table has duplicates"
+    assert len(table) == 22, f"README table must list 22 commands, found {len(table)}"
+    assert len(set(table)) == 22, "README table has duplicates"
     assert set(table) == _parser_commands(), (
         f"README/parser drift: only-in-readme={sorted(set(table) - _parser_commands())} "
         f"only-in-parser={sorted(_parser_commands() - set(table))}"

@@ -76,9 +76,19 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--paper-key", required=True)
     s.add_argument("--text", default="")
     s.add_argument("--text-file", default="")
-    s = sub.add_parser("pdf-extract", help="PDF text extraction (PyMuPDF first channel)")
+    s = sub.add_parser("pdf-extract", help="PDF text extraction (gate + cache + renders)")
     s.add_argument("path")
     s.add_argument("--max-pages", type=int, default=0)
+    s.add_argument("--run", help="append PDF_EXTRACT trace to this run")
+    s.add_argument("--render", type=int, default=0,
+                   help="render N pages as PNG for page-wise inspection (-1 = all)")
+    s.add_argument("--paper-key", help="bind the extract cache to this paper_key (claims lint reads it)")
+    s = sub.add_parser("pdf-fetch", help="OA waterfall fetch into _inbox (Unpaywall→arXiv→EuropePMC)")
+    s.add_argument("--doi")
+    s.add_argument("--arxiv", help="arXiv id, e.g. 2501.12345")
+    s.add_argument("--pmid")
+    s.add_argument("--name", help="file stem for the fetched pdf (default: the identifier)")
+    s.add_argument("--run", help="append PDF_FETCH trace to this run")
 
     s = sub.add_parser("claims-add", help="append a page-anchored claim (lint-gated)")
     s.add_argument("--payload", required=True, help="JSON object")
@@ -199,7 +209,14 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "pdf-extract":
         from pipelines import pdf
 
-        return _emit(pdf.extract(args.path, args.max_pages))
+        return _emit(pdf.extract(args.path, args.max_pages, args.run, args.render, args.paper_key))
+    if cmd == "pdf-fetch":
+        from pipelines import pdf
+
+        ids = {k: v for k, v in (("doi", args.doi), ("arxiv_id", args.arxiv), ("pmid", args.pmid)) if v}
+        if not ids:
+            return _emit({"ok": False, "error": "pdf-fetch needs --doi / --arxiv / --pmid"})
+        return _emit(pdf.fetch(ids, args.run, args.name))
     if cmd == "deepread-brief":
         text = args.text
         if args.text_file:

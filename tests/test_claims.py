@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pipelines import claims, runs
 
 RUN = "WEEKLYRUN-20260921-120000"
@@ -18,6 +20,20 @@ def _payload(**over):
     }
     base.update(over)
     return base
+
+
+@pytest.fixture(autouse=True)
+def _extract_cache():
+    """Every paper_key used here gets an extract cache (M3.2 page-scope lint)."""
+    from pipelines import store
+
+    soup = "verbatim another q2 other holds fails rmse 0.05 mm 0.5 0.05 2024 2025 5 %"
+    dump = {"schema_version": 3, "sha256": "d" * 64, "path": "x.pdf", "paper_key": "",
+            "pages": [{"page_no": n, "raw_text": soup} for n in range(1, 10)],
+            "created_at": "2026-09-21T00:00:00Z"}
+    for key in ("doi:10.1/x", "doi:10.1/a", "doi:10.1/b", "doi:10.1/c", "doi:10.1/d"):
+        leaf = f"{key.replace(':', '_').replace('/', '_')}.json"
+        store.write_json_atomic(store.cache_dir() / "extracts" / "by-key" / leaf, dump)
 
 
 def test_add_claim_appends_and_traces(frozen_clock):
@@ -153,3 +169,27 @@ def test_pairs_carry_severity(frozen_clock):
     by_kind = {p["kind"]: p["severity"] for p in claims.view()["pairs"]}
     assert by_kind["verdict_opposite"] == "high"
     assert by_kind["numeric_conflict"] == "medium"
+
+
+def test_quote_must_sit_on_anchor_page(frozen_clock):
+    from pipelines import store
+
+    dump = {"pages": [{"page_no": 6, "raw_text": "needle lives here"}]}
+    store.write_json_atomic(store.cache_dir() / "extracts" / "by-key" / "doi_10.1_offpage.json", dump)
+    miss = claims.add_claim(_payload(paper_key="doi:10.1/offpage", quote="needle lives here",
+                                     page_anchor=3))
+    assert not miss["ok"] and "not within ±1 page of anchor 3" in miss["error"]
+    assert "found on page(s) [6]" in miss["error"]
+    hit = claims.add_claim(_payload(paper_key="doi:10.1/offpage", quote="needle lives here",
+                                    page_anchor=5))
+    assert hit["ok"] and hit["quote_lint"] == "page-scoped"
+
+
+def test_quote_missing_from_extract_rejected(frozen_clock):
+    out = claims.add_claim(_payload(quote="not in the soup at all"))
+    assert not out["ok"] and "not found anywhere in the extract" in out["error"]
+
+
+def test_claim_without_extract_cache_is_rejected(frozen_clock):
+    out = claims.add_claim(_payload(paper_key="doi:10.1/nocache"))
+    assert not out["ok"] and "no extract cache" in out["error"]

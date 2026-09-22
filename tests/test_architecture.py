@@ -40,6 +40,9 @@ HORIZONTAL_OK = {
     ("search", "sources"),
     # sources -> net: transport seam shared by every adapter (M3.1)
     ("sources", "net"),
+    # pdf -> net: OA download transport; papers -> pdf: archive integrity gate (M3.2)
+    ("pdf", "net"),
+    ("papers", "pdf"),
 }
 
 

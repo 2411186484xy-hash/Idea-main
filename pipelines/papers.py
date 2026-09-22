@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from . import canon, contracts, runs, store
+from . import canon, contracts, pdf, runs, store
 
 
 def _fail(error: str, **extra: Any) -> dict[str, Any]:
@@ -35,6 +35,9 @@ def archive_pdf(paper_key: str, src: str) -> dict[str, Any]:
     origin = Path(src)
     if not origin.is_file():
         return _fail(f"pdf not found: {src}")
+    gate_ok, gate_detail = pdf.verify_file(origin)
+    if not gate_ok:
+        return _fail(f"pdf integrity gate: {gate_detail}")
     leaf = _safe_dirname(paper_key)
     dst = canon.paper_root() / "library" / leaf / origin.name
     mirror = canon.paper_mirror_root() / "library" / leaf / origin.name

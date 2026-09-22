@@ -5,6 +5,7 @@ from __future__ import annotations
 from pipelines import papers, runs
 
 RUN = "WEEKLYRUN-20260921-120000"
+GOOD_PDF = b"%PDF-1.4\n" + b"0" * 100_100 + b"\n%%EOF\n"
 
 
 def _payload(**over):
@@ -48,7 +49,7 @@ def test_retraction_veto(frozen_clock):
 def test_pdf_archive_mirrors_with_sha(frozen_clock, tmp_path):
     runs.start("weekly", RUN)
     src = tmp_path / "paper.pdf"
-    src.write_bytes(b"%PDF-1.4 fake body")
+    src.write_bytes(GOOD_PDF)
     result = papers.add_paper(RUN, _payload(), pdf=str(src))
     assert result["ok"] and result["archive"]["sha_match"] is True
     from pipelines import canon, store
@@ -66,6 +67,15 @@ def test_pdf_archive_refuses_forbidden_and_missing(frozen_clock):
     assert not papers.add_paper(RUN, _payload(), pdf="nope.pdf")["ok"]
     hit = papers.add_paper(RUN, _payload(), pdf="E:\\Project\\x.pdf")
     assert not hit["ok"] and "forbidden" in hit["error"]
+    assert runs.load(RUN).paper_candidates == []
+
+
+def test_pdf_archive_gate_rejects_incomplete(frozen_clock, tmp_path):
+    runs.start("weekly", RUN)
+    bad = tmp_path / "bad.pdf"
+    bad.write_bytes(b"%PDF-1.4 tiny")
+    result = papers.add_paper(RUN, _payload(), pdf=str(bad))
+    assert not result["ok"] and "integrity gate" in result["error"]
     assert runs.load(RUN).paper_candidates == []
 
 

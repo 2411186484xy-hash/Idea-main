@@ -68,9 +68,13 @@ def test_partial_resume_absorb_cycle(frozen_clock):
 
 
 def test_finish_counts_papers_and_claims(frozen_clock):
-    from pipelines import claims, papers
+    from pipelines import claims, papers, store
 
     runs.start("weekly", RUN)
+    store.write_json_atomic(
+        store.cache_dir() / "extracts" / "by-key" / "doi_10.1_x.json",
+        {"pages": [{"page_no": 2, "raw_text": "q lands here"}]},
+    )
     payload = {
         "title": "T",
         "identifiers": {"doi": "10.1/x"},

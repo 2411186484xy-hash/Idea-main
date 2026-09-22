@@ -67,6 +67,20 @@ def _fetch(url: str, params: dict[str, Any], timeout: int) -> tuple[str | None, 
         return None, _envelope(source, category, f"{type(exc).__name__}: {exc}")
 
 
+def _fetch_bytes(url: str, params: dict[str, Any], timeout: int) -> tuple[bytes | None, dict | None]:
+    """Binary twin of _fetch (PDF downloads); same seam, same envelopes."""
+    _ensure_ssl_cert_env()
+    query = ("?" + urllib.parse.urlencode(params)) if params else ""
+    req = urllib.request.Request(url + query, headers={"User-Agent": str(canon.value("search.user_agent"))})
+    try:
+        with _urlopen_noproxy(req, timeout=timeout) as resp:
+            return resp.read(), None
+    except Exception as exc:  # envelope, never raise
+        category = "http" if getattr(exc, "code", None) else "network"
+        source = url.split("/")[2] if "://" in url else url
+        return None, _envelope(source, category, f"{type(exc).__name__}: {exc}")
+
+
 def _strip_tags(text: str | None) -> str:
     return _TAG_RE.sub("", text or "").strip()
 

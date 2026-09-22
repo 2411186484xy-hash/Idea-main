@@ -13,7 +13,7 @@ python cli.py validate --strict   # 结构校验（冷启动应全绿）
 python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 ```
 
-## 命令表（21 个，README 即契约）
+## 命令表（22 个，README 即契约）
 
 | 命令 | 说明 | 状态 |
 |---|---|---|
@@ -21,13 +21,14 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 | `run-finish` | 收口：默认完成删除；`--partial` 留档可续；`--absorb` 放弃收口 | M0 |
 | `session-brief` | 首屏四块：coverage + 活跃 run + 教训摘要 + 待办 | M1.6 |
 | `validate` | 结构校验（canon 同步/悬挂 run/账本完整性）；`--strict` 警告也算失败 | M0 |
-| `search` | ACTIVE 四通道召回池；`--run` 记 query_log | M0+M2a |
+| `search` | 召回池：ACTIVE 五通道并发 + 按需源；`--cited-by`/`--references` 引文扩展；`--run` 记 query_log | M0+M3.1 |
 | `query-brief` | 多视角查询任务包 + 查询去重 | M2a |
 | `screen-rank` | 规则版排序 + 停止准则（提示性，判断归会话模型） | M0 |
 | `paper-add` | 候选入 run（标识符/撤稿硬门）；`--pdf` 归档 library + 镜像 | M0+M2b |
 | `deepread-brief` | writer/verifier 盲分离双书任务包 | M2c |
-| `pdf-extract` | PDF 文本层提取（PyMuPDF 第一通道，MinerU 探针降级） | M2c |
-| `claims-add` | 追加页锚定 claim（quote 逐字 + page_anchor 硬门） | M0 |
+| `pdf-extract` | PDF 文本层提取（完整性门 + 缓存 + `--render` 页渲染 + `--run` 追踪） | M2c+M3.2 |
+| `pdf-fetch` | OA 全文瀑布抓取（Unpaywall→arXiv→EuropePMC，完整性门后落 _inbox） | M3.2 |
+| `claims-add` | 追加页锚定 claim（quote 逐字 + page_anchor 硬门 + 页作用域 lint） | M0+M3.2 |
 | `claims-view` | 即席渲染（列表过滤 + 矛盾对：同 topic verdict 相反/数值冲突），不落盘 | M1.7 |
 | `idea-brief` | 碰撞三要素 + 教训注入 + 6 攻击 + 查新计划（四合一） | M2f |
 | `idea-add` | 供给门禁：coverage 未达阈值硬拦；过门后登记候选（M2f 完整孵化） | M1 门禁，M2f 完整 |
@@ -47,14 +48,14 @@ L1 store.py       唯一磁盘 IO + 记录编解码（to_dict/from_dict，schema
 L1 canon.py       canon 读取 + 四根 identity（IDEAOS_* 环境变量可重定向）
 L2 search/papers/claims/idea/feedback/zotero/runs   领域模块（唯一横向依赖：runs）
 L3 report/validate    纯读渲染与结构校验
-L4 cli.py         纯 argparse 表面，21 命令
+L4 cli.py         纯 argparse 表面，22 命令
 ```
 
 ## 数据生命周期（三条根原则）
 
 1. **做对一次**：契约 + 纪律 + 端口；靠分层与测试保持形状，不靠冻结机制。
 2. **吸收即删**：run 是临时工作状态，收口即删（session-log 一行遗骸）；磁盘上只留"现在还活着的"。
-3. **少即是稳**：命令 21 个、canon ≤200 行、pipelines+cli ≤4k 行、每加机制先问"V1 验证过它的价值吗"。
+3. **少即是稳**：命令 22 个、canon ≤200 行、pipelines+cli ≤4k 行、每加机制先问"V1 验证过它的价值吗"。
 
 ## 环境事实
 
