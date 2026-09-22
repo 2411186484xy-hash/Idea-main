@@ -7,9 +7,13 @@ too; the cold-start target is zero of both.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
-from . import canon, runs, store
+from . import canon, contracts, runs, store
+
+_TOPIC_FIELDS = {"id", "name", "status", "problem", "key_terms", "target_domains",
+                 "frontier_domains", "transfer_pairs", "negative_terms", "anchor_papers", "venues"}
 
 
 def _check_canon(errors: list[str]) -> None:
@@ -20,6 +24,8 @@ def _check_canon(errors: list[str]) -> None:
         canon.value("quotas.l2_per_run")
         canon.value("quotas.feedback_coverage_min")
         canon.value("limits.stale_hours")
+        canon.value("knowledge.topics_file")
+        canon.value("knowledge.collision_bank_file")
     except canon.CanonError as exc:
         errors.append(f"canon anchor missing: {exc}")
         return
@@ -101,6 +107,117 @@ def _check_session_log(errors: list[str]) -> None:
             errors.append(f"session-log: line {lineno} missing {missing}")
 
 
+def _check_topics(errors: list[str], path: Path | None = None) -> None:
+    """Topic registry: the zero-code extension interface for retrieval topics."""
+    path = path or canon.data_path("knowledge.topics_file")
+    if not path.exists():
+        errors.append("knowledge/topics.json missing (topic registry is the extension interface)")
+        return
+    try:
+        doc = store.read_json(path)
+    except Exception as exc:
+        errors.append(f"topics.json unloadable: {exc}")
+        return
+    if not store.is_known_schema(doc):
+        errors.append("topics.json: unknown/missing schema_version")
+    topics = doc.get("topics") if isinstance(doc, dict) else None
+    if not isinstance(topics, list) or not topics:
+        errors.append("topics.json: 'topics' must be a non-empty list")
+        return
+    seen: set[str] = set()
+    for i, topic in enumerate(topics):
+        where = f"topics[{i}]"
+        if not isinstance(topic, dict):
+            errors.append(f"{where}: not an object")
+            continue
+        extra = sorted(set(topic) - _TOPIC_FIELDS)
+        if extra:
+            errors.append(f"{where}: unknown fields {extra}")
+        tid = str(topic.get("id", ""))
+        if not contracts.TOPIC_ID_RE.match(tid):
+            errors.append(f"{where}: bad id {tid!r}")
+        if tid in seen:
+            errors.append(f"{where}: duplicate id {tid!r}")
+        seen.add(tid)
+        for key in ("name", "problem"):
+            if not str(topic.get(key, "")).strip():
+                errors.append(f"{where}: {key} required")
+        if topic.get("status") not in ("active", "paused"):
+            errors.append(f"{where}: status must be active|paused")
+        for key in ("key_terms", "target_domains"):
+            val = topic.get(key)
+            if not isinstance(val, list) or not val or not all(str(v).strip() for v in val):
+                errors.append(f"{where}: {key} must be a non-empty list of strings")
+        for key in ("frontier_domains", "negative_terms", "anchor_papers", "venues"):
+            val = topic.get(key)
+            if not isinstance(val, list) or not all(str(v).strip() for v in val):
+                errors.append(f"{where}: {key} must be a list of strings")
+        pairs = topic.get("transfer_pairs")
+        if not isinstance(pairs, list) or not pairs:
+            errors.append(f"{where}: transfer_pairs required (cross-domain route)")
+            continue
+        for j, pair in enumerate(pairs):
+            pair = pair if isinstance(pair, dict) else {}
+            missing = [k for k in ("from_field", "method_terms", "to_problem") if not pair.get(k)]
+            if missing:
+                errors.append(f"{where}.transfer_pairs[{j}]: missing {missing}")
+
+
+def _check_collision_bank(errors: list[str], path: Path | None = None) -> None:
+    path = path or canon.data_path("knowledge.collision_bank_file")
+    if not path.exists():
+        errors.append("knowledge/collision-bank.json missing (idea-brief collision source)")
+        return
+    try:
+        doc = store.read_json(path)
+    except Exception as exc:
+        errors.append(f"collision-bank.json unloadable: {exc}")
+        return
+    if not store.is_known_schema(doc):
+        errors.append("collision-bank.json: unknown/missing schema_version")
+    domains = doc.get("domains") if isinstance(doc, dict) else None
+    if not isinstance(domains, list) or len(domains) < 8:
+        errors.append("collision-bank.json: needs >= 8 domains")
+        return
+    ids: set[str] = set()
+    for i, entry in enumerate(domains):
+        entry = entry if isinstance(entry, dict) else {}
+        missing = [k for k in ("id", "domain", "principle", "template")
+                   if not str(entry.get(k, "")).strip()]
+        if missing:
+            errors.append(f"collision-bank[{i}]: missing {missing}")
+        eid = str(entry.get("id", ""))
+        if eid in ids:
+            errors.append(f"collision-bank[{i}]: duplicate id {eid!r}")
+        ids.add(eid)
+
+
+def _check_ledger_dups(errors: list[str]) -> None:
+    seen_fb: dict[tuple[str, str, str], int] = {}
+    for lineno, raw in store.read_jsonl_raw(store.feedback_path()):
+        try:
+            row = json.loads(raw)
+        except ValueError:
+            continue
+        key = (str(row.get("slug", "")), str(row.get("verdict", "")),
+               str(row.get("reason", "")).strip())
+        if key in seen_fb:
+            errors.append(f"feedback: duplicate verdict row {key[0]} ({key[1]}) at line {lineno}")
+        else:
+            seen_fb[key] = lineno
+    seen_runs: dict[str, int] = {}
+    for lineno, raw in store.read_jsonl_raw(store.session_log_path()):
+        try:
+            row = json.loads(raw)
+        except ValueError:
+            continue
+        rid = str(row.get("run_id", ""))
+        if rid in seen_runs:
+            errors.append(f"session-log: duplicate run_id {rid} at line {lineno}")
+        else:
+            seen_runs[rid] = lineno
+
+
 def run_checks() -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -115,6 +232,9 @@ def run_checks() -> dict[str, Any]:
     _check_claims(errors)
     _check_pool(errors)
     _check_session_log(errors)
+    _check_topics(errors)
+    _check_collision_bank(errors)
+    _check_ledger_dups(errors)
     return {"ok": not errors, "errors": errors, "warnings": warnings}
 
 

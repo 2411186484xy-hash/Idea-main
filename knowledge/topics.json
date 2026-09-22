@@ -1,0 +1,63 @@
+{
+  "schema_version": 3,
+  "topics": [
+    {
+      "id": "single-shot-sl",
+      "name": "单帧结构光/条纹投影三维重建（含内窥镜场景）",
+      "status": "active",
+      "problem": "单帧（无相移/多频）条纹深度重建的精度与可靠性保证：逐点可信度、覆盖率与风险控制",
+      "key_terms": [
+        "fringe projection profilometry",
+        "single-shot 3D reconstruction",
+        "phase demodulation",
+        "structured light",
+        "depth uncertainty",
+        "endoscopic 3D reconstruction"
+      ],
+      "target_domains": [
+        "structured light 3D measurement",
+        "fringe projection profilometry",
+        "endoscopic depth sensing"
+      ],
+      "frontier_domains": [
+        "conformal prediction / distribution-free risk control",
+        "event-based vision",
+        "implicit neural representations",
+        "test-time adaptation",
+        "uncertainty calibration"
+      ],
+      "transfer_pairs": [
+        {
+          "from_field": "ML uncertainty quantification",
+          "method_terms": ["conformal prediction", "distribution-free coverage guarantee", "risk-controlling prediction sets"],
+          "to_problem": "逐点/逐区域深度可信度与覆盖率保证"
+        },
+        {
+          "from_field": "neuromorphic / event vision",
+          "method_terms": ["event camera", "continuous-time sensing"],
+          "to_problem": "高速动态场景单帧采集与运动退化抑制"
+        },
+        {
+          "from_field": "self-supervised monocular depth",
+          "method_terms": ["scale-ambiguous depth", "metric depth disambiguation"],
+          "to_problem": "单目融合与尺度消歧"
+        },
+        {
+          "from_field": "medical imaging calibration",
+          "method_terms": ["calibration uncertainty propagation", "covariance propagation"],
+          "to_problem": "标定不确定性到深度置信度的传递"
+        }
+      ],
+      "negative_terms": ["LiDAR-only", "ToF sensor survey", "RGB generative depth"],
+      "anchor_papers": [
+        "doi:10.1016/j.optlaseng.2021.106622",
+        "doi:10.1038/s41377-023-01294-0",
+        "doi:10.29026/oea.2022.210021"
+      ],
+      "venues": [
+        "CVPR", "ICCV", "ECCV", "MICCAI",
+        "Optics Express", "Optics Letters", "IEEE TIM", "Optics and Lasers in Engineering"
+      ]
+    }
+  ]
+}

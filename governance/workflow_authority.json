@@ -60,6 +60,16 @@
       "why": "V1 硬门：撤稿双通道一票否决；M0 仅 openalex 通道生效，crossref 在 M2a"
     }
   },
+  "knowledge": {
+    "topics_file": {
+      "value": "knowledge/topics.json",
+      "why": "检索主题扩展接口唯一真源：加主题=加数据零代码（2026-09-23 裁决）；schema 由 validate 校验"
+    },
+    "collision_bank_file": {
+      "value": "knowledge/collision-bank.json",
+      "why": "跨域碰撞源域库（V1 idea_collision.py DOMAIN_BANK 18 域迁移；open-collider 设计借鉴）；idea-brief 引用"
+    }
+  },
   "coverage": {
     "routes": {
       "value": ["direct", "counter_boundary", "transfer", "frontier"],
@@ -69,11 +79,11 @@
   "quotas": {
     "l2_per_run": {
       "value": [10, 15],
-      "why": "V1实证L2配额区间（V1-RETROSPECTIVE deep_read.l2.quota_per_run）；V2双通道：complete通道未达下限软放行并记gap（V1-RETROSPECTIVE G3.3门禁可豁免留痕），partial通道以gap_note显式豁免（PITFALL-REVIEW C档：L2配额hard拒收改hard+partial双通道）"
+      "why": "V1实证L2配额区间（V1 审计证据包 audit-D：deep_read.l2.quota_per_run）；V2双通道：complete通道未达下限软放行并记gap（V1 审计 G3.3门禁可豁免留痕），partial通道以gap_note显式豁免（PITFALL-REVIEW C档：L2配额hard拒收改hard+partial双通道）"
     },
     "feedback_coverage_min": {
       "value": 0.5,
-      "why": "V1-RETROSPECTIVE G3.6：coverage<50%时不得新增候选；V1 41天未闭环反馈、供给不受约束是根因之一（FINAL-REPORT：反馈覆盖率首屏，低覆盖禁扩供给）"
+      "why": "V1 审计 G3.6：coverage<50%时不得新增候选；V1 41天未闭环反馈、供给不受约束是根因之一（FINAL-REPORT：反馈覆盖率首屏，低覆盖禁扩供给）"
     },
     "screen_stop_n": {
       "value": 5,

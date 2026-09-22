@@ -17,6 +17,12 @@ def _payload(**over):
             "source_domain": "structured light",
             "target_domain": "monocular depth",
         },
+        "disproof": {
+            "experiment": "ablate the region mask against the global-point gate on identical captures",
+            "controls": "same captures and reader, only the decision rule swapped",
+            "decision_rule": "region P95 < 0.4mm while in-region coverage stays > 50%",
+            "failure_interpretation": "no lift over the global gate means the mask adds no information",
+        },
         "quality_card": {
             dim: {"score": 3, "rationale": f"{dim} ok"} for dim in (
                 "novelty", "rigor", "feasibility", "clarity", "data_availability", "venue_fit"
@@ -27,7 +33,8 @@ def _payload(**over):
             {
                 "query": "fringe monocular scale",
                 "backend": "openalex",
-                "top_match": "none",
+                "result": "empty",
+                "confidence": "weak",
                 "note": "no direct prior",
             }
         ],

@@ -83,6 +83,11 @@ def is_forbidden(path_str: str) -> bool:
     )
 
 
+def data_path(dotted: str) -> Path:
+    """Repo-anchored data file named by canon (system inputs, not runtime state)."""
+    return REPO_ROOT / str(value(dotted))
+
+
 def check_identity_sync() -> list[str]:
     """Four roots must be absolute; mirrors must sit under a distinct backup root."""
     problems: list[str] = []

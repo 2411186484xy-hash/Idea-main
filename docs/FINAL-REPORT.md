@@ -90,7 +90,7 @@ V1 不是"写坏了"，而是**六周内把治理、工程、业务三条线各�
 
 ## 3. 弯路全录（24 条）
 
-> 本节为总纲，每条给出「现象 → 证据 → 根因 → 代价 → 规则」。逐条完整证据链见 `docs/V1-RETROSPECTIVE.md`。
+> 本节为总纲，每条给出「现象 → 证据 → 根因 → 代价 → 规则」。逐条完整证据链已并入本节各条（原 `docs/V1-RETROSPECTIVE.md` 未随 v2 仓保留；V1 只读审计证据包在 `.workbuddy/memory/audits-2026-09-23/`）。
 
 ### A. 治理域（5 条）
 
@@ -211,7 +211,7 @@ V1 不是"写坏了"，而是**六周内把治理、工程、业务三条线各�
 
 ## 4. 红线清单（第一天不变式 12 条 + 九组 52 条）
 
-> 完整版见 `knowledge/legacy-detours.md`（含每条证据与核验表）。此处列规则本体。
+> 完整规则与核验表见 V1 仓 `docs/` 与 `.workbuddy/memory/audits-2026-09-23/`（原 `knowledge/legacy-detours.md` 未随 v2 仓保留）。此处列规则本体。
 
 ### 4.1 第一天不变式（其余都是推论）
 
@@ -366,8 +366,8 @@ V2 唯一的护身符，是第一关先跑出一个**带 verdict + 真实研究�
 | 文档 | 定位 |
 |---|---|
 | **`docs/FINAL-REPORT.md`**（本文） | **单一入口的最终报告**：摘要 + 基线 + 24 条弯路 + 52 条红线 + 核验 + V2 诊断 + 路线 |
-| `docs/V1-RETROSPECTIVE.md` | 证据档案：24 条弯路的逐条完整证据链（commit 时间线表、原文摘录） |
-| `knowledge/legacy-detours.md` | 纪律清单：12 条不变式 + 九组 52 条红线（每条带伤疤证据）+ 核验声明 |
+| `docs/V1-RETROSPECTIVE.md` | 证据档案：24 条弯路的逐条完整证据链（未随 v2 仓保留；证据包在 `.workbuddy/memory/audits-2026-09-23/`） |
+| `knowledge/legacy-detours.md` | 纪律清单：12 条不变式 + 九组 52 条红线（未随 v2 仓保留；摘要见本文件 §4） |
 | `docs/V2-ACTION-ITEMS.md` | 可勾选整改清单（含验收标准） |
 | `governance/workflow_authority.json` | V2 的 canon（单真源） |
 | `knowledge/anti-pattern-cards.md` | V2 的反模式卡（AP-01~05；V1 最终为 AP-01~08） |

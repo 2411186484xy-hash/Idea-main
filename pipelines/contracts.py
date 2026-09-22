@@ -32,8 +32,12 @@ QUALITY_DIMS = ("novelty", "rigor", "feasibility", "clarity", "data_availability
 IDEA_STATUSES = ("draft", "published", "accepted", "rejected", "uncertain")
 FEEDBACK_VERDICTS = ("accept", "reject", "uncertain")
 ERROR_CATEGORIES = ("network", "http", "parse", "config", "gate")
+NOVELTY_RESULTS = ("hit", "empty", "error")
+NOVELTY_CONFIDENCES = ("strong", "weak")
+DISPROOF_FIELDS = ("experiment", "controls", "decision_rule", "failure_interpretation")
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,}$")
+TOPIC_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,}$")
 RUN_ID_RE = re.compile(r"^(WEEKLYRUN|IDEARUN)-\d{8}-\d{6}$")
 CLAIM_ID_RE = re.compile(r"^CLM-\d{8}-\d{3,}$")
 IDENTIFIER_KEYS = ("doi", "pmid", "arxiv_id", "pdf_sha256")
@@ -96,6 +100,7 @@ class Run:
     uncertainty_disclosure: list[str] = field(default_factory=list)
     completed_at: str | None = None
     gap_note: str | None = None
+    topic: str | None = None
     schema_version: int = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -109,6 +114,8 @@ class Run:
             self.coverage = {route: 0 for route in COVERAGE_ROUTES}
         missing = [r for r in COVERAGE_ROUTES if r not in self.coverage]
         _require(not missing, f"coverage missing routes: {missing}")
+        if self.topic is not None:
+            _require(bool(TOPIC_ID_RE.match(self.topic)), f"bad run.topic: {self.topic!r}")
 
 
 @dataclass
@@ -120,6 +127,7 @@ class PaperCandidate:
     identifiers: dict[str, str] = field(default_factory=dict)
     discovery_class: str = "direct"
     source_backend: str = ""
+    sources: list[dict[str, Any]] = field(default_factory=list)
     abstract: str = ""
     abstract_sha256: str = ""
     retraction: dict[str, Any] = field(default_factory=dict)
@@ -186,6 +194,7 @@ class IdeaCandidate:
     title: str = ""
     hypothesis: str = ""
     collision: dict[str, str] = field(default_factory=dict)
+    disproof: dict[str, str] = field(default_factory=dict)
     quality_card: dict[str, dict[str, Any]] = field(default_factory=dict)
     attacks: list[str] = field(default_factory=list)
     novelty_log: list[dict[str, str]] = field(default_factory=list)
@@ -210,9 +219,16 @@ class IdeaCandidate:
         _require(isinstance(self.attacks, list) and len(self.attacks) >= 6
                  and all(str(a).strip() for a in self.attacks),
                  "at least 6 non-empty attacks required")
+        missing_d = [k for k in DISPROOF_FIELDS if not str(self.disproof.get(k, "")).strip()]
+        _require(not missing_d, f"disproof missing fields: {missing_d}")
         for entry in self.novelty_log:
-            for key in ("query", "backend", "top_match", "note"):
+            for key in ("query", "backend", "note"):
                 _require(bool(entry.get(key, "").strip()), f"novelty_log.{key} required")
+            _one_of(entry.get("result", ""), NOVELTY_RESULTS, "novelty_log.result")
+            _one_of(entry.get("confidence", ""), NOVELTY_CONFIDENCES, "novelty_log.confidence")
+            if entry.get("result") == "hit":
+                _require(bool(entry.get("top_match", "").strip()),
+                         "novelty_log.top_match required when result=hit")
         _require(bool(self.evidence_refs) and all(str(r).strip() for r in self.evidence_refs),
                  "evidence_refs (corpus gate 3+1+1) required")
         _one_of(self.status, IDEA_STATUSES, "idea.status")

@@ -86,18 +86,28 @@ def test_error_envelope_category():
         contracts.ErrorEnvelope(source="x", category="weird", message="m")
 
 
-def test_quality_card_and_attacks_gates():
+def _idea_payload(**over):
     card = {d: {"score": 3, "rationale": "r"} for d in contracts.QUALITY_DIMS}
-    idea = {
+    base = {
         "slug": "my-idea",
         "title": "T",
         "hypothesis": "H",
         "collision": {"seed": "s", "source_domain": "a", "target_domain": "b"},
+        "disproof": {"experiment": "e", "controls": "c", "decision_rule": "d",
+                     "failure_interpretation": "f"},
         "quality_card": card,
         "attacks": ["a"] * 6,
-        "novelty_log": [{"query": "q", "backend": "b", "top_match": "t", "note": "n"}],
+        "novelty_log": [{"query": "q", "backend": "b", "result": "hit",
+                         "confidence": "strong", "top_match": "t", "note": "n"}],
         "evidence_refs": ["doi:1", "doi:2", "doi:3"],
     }
+    base.update(over)
+    return base
+
+
+def test_quality_card_and_attacks_gates():
+    card = {d: {"score": 3, "rationale": "r"} for d in contracts.QUALITY_DIMS}
+    idea = _idea_payload()
     assert contracts.IdeaCandidate(**idea).status == "draft"
     with pytest.raises(ValueError, match="slug"):
         contracts.IdeaCandidate(**{**idea, "slug": "UP"})
@@ -105,6 +115,42 @@ def test_quality_card_and_attacks_gates():
         contracts.IdeaCandidate(**{**idea, "quality_card": {**card, "novelty": {"score": 9, "rationale": "r"}}})
     with pytest.raises(ValueError, match="attacks"):
         contracts.IdeaCandidate(**{**idea, "attacks": ["a"] * 5})
+
+
+def test_disproof_fields_required():
+    with pytest.raises(ValueError, match="disproof"):
+        contracts.IdeaCandidate(**_idea_payload(disproof={}))
+    with pytest.raises(ValueError, match="disproof"):
+        contracts.IdeaCandidate(**_idea_payload(
+            disproof={"experiment": "e", "controls": "c", "decision_rule": "d",
+                      "failure_interpretation": "  "}))
+
+
+def test_novelty_three_state_gate():
+    with pytest.raises(ValueError, match="novelty_log.result"):
+        contracts.IdeaCandidate(**_idea_payload(novelty_log=[
+            {"query": "q", "backend": "b", "result": "maybe", "confidence": "weak", "note": "n"}]))
+    with pytest.raises(ValueError, match="novelty_log.confidence"):
+        contracts.IdeaCandidate(**_idea_payload(novelty_log=[
+            {"query": "q", "backend": "b", "result": "empty", "confidence": "guess", "note": "n"}]))
+    with pytest.raises(ValueError, match="top_match"):
+        contracts.IdeaCandidate(**_idea_payload(novelty_log=[
+            {"query": "q", "backend": "b", "result": "hit", "confidence": "strong", "note": "n"}]))
+    # an empty-result row needs no top_match
+    ok = contracts.IdeaCandidate(**_idea_payload(novelty_log=[
+        {"query": "q", "backend": "b", "result": "empty", "confidence": "weak", "note": "n"}]))
+    assert ok.status == "draft"
+
+
+def test_run_topic_id_gate():
+    run = contracts.Run(
+        run_id="WEEKLYRUN-20260921-120000", kind="weekly", status="active",
+        attempt=1, created_at="t", updated_at="t", topic="single-shot-sl")
+    assert run.topic == "single-shot-sl"
+    with pytest.raises(ValueError, match="run.topic"):
+        contracts.Run(
+            run_id="WEEKLYRUN-20260921-120000", kind="weekly", status="active",
+            attempt=1, created_at="t", updated_at="t", topic="Bad Topic")
 
 
 def test_manifest_hash_gate():

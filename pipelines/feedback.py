@@ -1,7 +1,7 @@
 """L2 feedback: researcher verdict ledger + coverage + V1 stock import.
 
 The only validation signal (verdict+reason required, V1-proven). coverage()
-is first-screen data (V1-RETROSPECTIVE G3.5) and the supply gate (G3.6):
+is first-screen data (V1 审计 G3.5) and the supply gate (G3.6):
 idea-add hard-refuses while coverage sits below the canon threshold.
 feedback-import-v1 scans the delivery root READ-ONLY; it never writes back
 to E-drive files (V1 test_dir_writeback_proves the direction: verdicts flow
@@ -39,6 +39,13 @@ def add_feedback(
         )
     except (ValueError, TypeError) as exc:
         return _fail(f"feedback rejected: {exc}")
+    for row in load_feedback():
+        if (str(row.get("slug")), str(row.get("verdict")), str(row.get("reason", "")).strip()) == (
+            entry.slug,
+            entry.verdict,
+            entry.reason,
+        ):
+            return _fail(f"duplicate verdict row already present: {entry.slug} ({entry.verdict})")
     store.append_jsonl(store.feedback_path(), store.to_dict(entry))
     if verdict == "reject":
         lesson = contracts.FailureEntry(slug=entry.slug, stage="verdict",

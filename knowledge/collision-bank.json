@@ -1,0 +1,113 @@
+{
+  "schema_version": 3,
+  "domains": [
+    {
+      "id": "adaptive-optics",
+      "domain": "天文自适应光学",
+      "principle": "可变形镜把未知波前变成可实时测量并共轭补偿的闭环误差，静态缺陷变为可校正量",
+      "template": "把「{principle}」搬到「{problem}」：为 {anchor} 增加一个可实时测量的共轭自由度（测什么/执行器/闭环带宽/残差指标），能否把当前不可控误差变为可校正量？"
+    },
+    {
+      "id": "seismology-inversion",
+      "domain": "地震学联合反演",
+      "principle": "走时+波形联合反演：用可观测到时约束不可见速度结构，靠多源冗余消解非唯一性",
+      "template": "像地震层析一样处理「{problem}」：{anchor} 能否被一组廉价但冗余的替代观测联合约束，从而消解反演的非唯一性？代价与分辨率如何换算？"
+    },
+    {
+      "id": "closure-phase",
+      "domain": "射电干涉闭合相位",
+      "principle": "干涉闭合相位：两两相位不可得，但三元闭包不受站间公共误差影响，用不变量绕过不可观测量",
+      "template": "为「{problem}」寻找三元闭合不变量：当 {anchor} 的绝对量不可得时，是否存在对公共干扰免疫的闭包组合（差分、比值、闭环一致性）仍可约束目标？"
+    },
+    {
+      "id": "gum-uncertainty",
+      "domain": "计量学 GUM 不确定度传播",
+      "principle": "把误差预算拆成可溯源分量并逐项传播，用覆盖区间而非单一值给出结论",
+      "template": "把「{problem}」按 GUM 预算重写：{anchor} 的误差能拆成哪些可单独标定/传播的分量（A/B 类），合成后的覆盖区间能否让结论更稳健？"
+    },
+    {
+      "id": "zero-knowledge",
+      "domain": "零知识证明",
+      "principle": "证明者不泄露原始数据即可让验证者相信陈述为真，用承诺+挑战换取可信度",
+      "template": "借用零知识协议的承诺-挑战结构处理「{problem}」：能否让 {anchor} 在不公开原始数据的前提下被审计（承诺什么/挑战什么/如何防作弊）？"
+    },
+    {
+      "id": "mechanism-design",
+      "domain": "机制设计",
+      "principle": "不假设参与者诚实，设计激励相容的规则让自利行为导出系统目标",
+      "template": "把「{problem}」当机制设计问题：{anchor} 的采集/标注参与者若自利甚至作弊，什么规则能使其诚实上报成为均衡？"
+    },
+    {
+      "id": "occupancy-model",
+      "domain": "生态占用模型",
+      "principle": "用重复观测分离「存在但未检出」与「真不存在」，把检出率本身作为可估计量",
+      "template": "用占用模型重述「{problem}」：{anchor} 的观测里如何把「丢失/未检出」与「真值不存在」分离？检出概率能否作为可估计量进入模型？"
+    },
+    {
+      "id": "excess-estimation",
+      "domain": "流行病超额估计",
+      "principle": "以历史基线+同期对照推断「本应发生多少」，残余差值归因目标事件，绕开确诊口径",
+      "template": "对「{problem}」做超额估计：用历史基线/同期对照推断 {anchor} 的「本应水平」，残差是否比直接测量更能暴露真实效应？口径污染如何控制？"
+    },
+    {
+      "id": "hinf-control",
+      "domain": "H∞ 鲁棒控制",
+      "principle": "按不确定集设计而非按名义点设计，对最坏扰动保证有界增益，稳定性优先于最优性",
+      "template": "把「{problem}」按最坏情况设计：当 {anchor} 的不确定集已知时，什么方案能对最坏扰动有界？性能换鲁棒性的交换率是多少？"
+    },
+    {
+      "id": "ensemble-forecast",
+      "domain": "气象集合预报",
+      "principle": "扰动初值与参数生成成员分布，用离散度表达可预报性，把不确定本身作为产品",
+      "template": "让「{problem}」输出集合而非点估计：{anchor} 的扰动能生成有意义的成员分布吗？成员离散度能否作为可预报性信号被消费？"
+    },
+    {
+      "id": "rietveld-refinement",
+      "domain": "晶体学 Rietveld 全谱精修",
+      "principle": "把重叠峰的多相贡献同时精修，弱相从残余谱形中被识别，而非靠单峰判决",
+      "template": "用全谱拟合视角看「{problem}」：{anchor} 的信号是否由多个重叠成分构成？同时精修所有成分能否识别出单峰判决会漏掉的弱成分？"
+    },
+    {
+      "id": "confidence-rejection",
+      "domain": "语音置信度校准与拒识",
+      "principle": "置信度经校准后可解释，低置信样本转人工而非硬判，使自动部分的错误率有上界",
+      "template": "为「{problem}」加校准与拒识层：{anchor} 的置信输出校准后，能否把低置信样本转交人工复核，使自动部分错误率可控？"
+    },
+    {
+      "id": "zero-point-calibration",
+      "domain": "光度零点互校准",
+      "principle": "无绝对基准时用重叠视场/共同源做相对定标，把全局零点差消解为可约束的相对量",
+      "template": "对「{problem}」做互校准：当 {anchor} 缺绝对基准时，多个数据源的重叠部分能否用作相对零点，先保排序一致性再谈绝对值？"
+    },
+    {
+      "id": "heteroscedastic-kriging",
+      "domain": "地统计异方差克里金",
+      "principle": "显式建模观测方差差异，噪声大的点自动降权，插值同时输出不确定性场",
+      "template": "按异方差克里金处理「{problem}」：{anchor} 的观测精度不均时，能否把每点精度显式代入加权插值，并让方差场指导后续采样位置？"
+    },
+    {
+      "id": "signal-detection",
+      "domain": "信号检测论",
+      "principle": "把灵敏度 d' 与判据分开：性能下降要区分「看不清」还是「判太严」，用 ROC 而非单一错误率",
+      "template": "用信号检测论审视「{problem}」：{anchor} 的瓶颈在灵敏度还是判据？换判据/换代价矩阵能释放多少性能？"
+    },
+    {
+      "id": "speculative-execution",
+      "domain": "体系结构投机执行",
+      "principle": "先乐观执行、后验证回滚，把串行等待变成并行尝试，代价只是回滚成本",
+      "template": "把投机-验证-回滚搬到「{problem}」：{anchor} 的哪些环节可先乐观猜测并行推进，再用廉价验证纠正或回滚？误判率与收益如何权衡？"
+    },
+    {
+      "id": "blinding",
+      "domain": "盲法分析",
+      "principle": "分析前冻结方案与判据，防止结果导向的分析自由度，只在揭盲时一次性检验",
+      "template": "为「{problem}」增加盲法：{anchor} 的分析若先冻结方案与判据再做（避免事后选择），结论稳定性会怎样变化？"
+    },
+    {
+      "id": "robust-optimization",
+      "domain": "鲁棒优化不确定集",
+      "principle": "解对不确定集内所有实现可行，用对偶把无限约束化为可解形式，保守度可调",
+      "template": "把「{problem}」写成鲁棒优化：{anchor} 的不确定参数入集合后，什么解在集合内处处可行？保守度与收益的交换曲线如何？"
+    }
+  ]
+}

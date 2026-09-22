@@ -9,6 +9,7 @@ No freeze hashes, no side ledgers, no refreeze — single writer, atomic writes.
 from __future__ import annotations
 
 import datetime as _dt
+import json
 from typing import Any
 
 from . import canon, contracts, store
@@ -102,6 +103,13 @@ def finish(
         return _fail(f"run not found: {run_id}")
     if run.status == "completed":
         return _fail(f"run already terminal: {run_id}")
+    for _, raw in store.read_jsonl_raw(store.session_log_path()):
+        try:
+            logged = json.loads(raw).get("run_id")
+        except ValueError:
+            continue
+        if logged == run_id:
+            return _fail(f"run already closed: session-log has {run_id} (finish is single-shot)")
     if partial_note is not None and absorb_note is not None:
         return _fail("--partial and --absorb are mutually exclusive")
     if partial_note is not None:

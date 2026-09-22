@@ -1,6 +1,9 @@
 # Runtime state: run dirs are deleted on finish, never committed
 runs/
 
+# Working scratch under the knowledge layer (extracts, big JSON dumps)
+knowledge/.cache/
+
 # Python
 __pycache__/
 *.pyc
