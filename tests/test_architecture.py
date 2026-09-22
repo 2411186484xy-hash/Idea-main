@@ -43,6 +43,8 @@ HORIZONTAL_OK = {
     # pdf -> net: OA download transport; papers -> pdf: archive integrity gate (M3.2)
     ("pdf", "net"),
     ("papers", "pdf"),
+    # zotero -> claims: evidence-notes lane reads the CONFIRMED claim rows (M3.3)
+    ("zotero", "claims"),
 }
 
 

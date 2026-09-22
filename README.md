@@ -13,7 +13,7 @@ python cli.py validate --strict   # 结构校验（冷启动应全绿）
 python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 ```
 
-## 命令表（22 个，README 即契约）
+## 命令表（23 个，README 即契约）
 
 | 命令 | 说明 | 状态 |
 |---|---|---|
@@ -38,6 +38,7 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 | `zotero-manifest` | 三段式第一步：manifest+SHA 暂存 | M2e |
 | `zotero-write` | 窄写面：仅 manifest 批准条目 | M2e |
 | `zotero-readback` | 回读审计并归档（行业空白能力） | M2e |
+| `zotero-notes` | 证据笔记 note.md（仅 CONFIRMED）→ library + 镜像 SHA 一致；Better Notes 导入 | M3.3 |
 | `backup-verify` | 备份新鲜度检查 + 抽样恢复验证 | M2h |
 
 ## 分层（机器强制，tests/test_architecture.py）
@@ -48,14 +49,33 @@ L1 store.py       唯一磁盘 IO + 记录编解码（to_dict/from_dict，schema
 L1 canon.py       canon 读取 + 四根 identity（IDEAOS_* 环境变量可重定向）
 L2 search/papers/claims/idea/feedback/zotero/runs   领域模块（唯一横向依赖：runs）
 L3 report/validate    纯读渲染与结构校验
-L4 cli.py         纯 argparse 表面，22 命令
+L4 cli.py         纯 argparse 表面，23 命令
 ```
 
 ## 数据生命周期（三条根原则）
 
 1. **做对一次**：契约 + 纪律 + 端口；靠分层与测试保持形状，不靠冻结机制。
 2. **吸收即删**：run 是临时工作状态，收口即删（session-log 一行遗骸）；磁盘上只留"现在还活着的"。
-3. **少即是稳**：命令 22 个、canon ≤200 行、pipelines+cli ≤4k 行、每加机制先问"V1 验证过它的价值吗"。
+3. **少即是稳**：命令 23 个、canon ≤200 行、pipelines+cli ≤4k 行、每加机制先问"V1 验证过它的价值吗"。
+
+## Zotero 生态互补矩阵（2026-09-23 快照；星数/许可为本轮 GitHub API 实测）
+
+本系统不与插件争数据面：条目、附件与人工笔记归 Zotero 本体与插件；本系统只碰三个窄面——
+`idea-os:<paper_key>` / `topic:<id>` 标签、CONFIRMED claims 证据笔记、manifest→窄写→readback 审计。
+
+| 能力 | 交给谁（快照） | 本系统补什么 |
+|---|---|---|
+| 条目/元数据编辑 | Zotero 本体 | 只读本地 API（免 key、无速率限制、离线可用）；写面只打两类标签 |
+| 附件整理/重命名 | Attanger (AGPL, 1,359★)、Zotmoov (GPL, 1,523★) | 不接管；自存档 PDF 走完整性门 + SHA 镜像校验 |
+| citekey / 导出 | Better BibTeX (MIT, 7,148★) | 不重复实现；claim 锚定用 paper_key/DOI，不绑定 citekey |
+| 人工笔记/双链 | Better Notes (AGPL, 8,246★) | 互补：本系统只写证据笔记（CONFIRMED + 页码 + 逐字引文），每 run 一次 |
+| 阅读队列 | Reading List (GPL, 577★，`#to-read` 标签) | 管人工阅读流；本系统管机器流（检索→筛选→claims→idea） |
+| 引用计数 | Zotero Scholar（2021 停滞、无 LICENSE） | 用 OpenAlex 免 key cited_by_count，随候选入库，不写回 Extra |
+| DOI 校验 | DOI Manager（近 2 年未更新） | add_paper 门内做 DOI 规范化；不做批量改写 |
+| 写入审计 | 插件与 zotero-mcp 均为 fire-and-forget | manifest→窄写→readback 归档（本系统独有；54yyyu zotero-mcp MIT 5,112★ 亦无） |
+| 语义检索/RAG | zotero-mcp（54yyyu MIT 5,112★ / cookjohn MIT 1,173★） | 明确不做（V1 已裁：RAG dormant）；检索走免 key 多源 API |
+
+AGPL/GPL 插件仅作设计参考，不合并代码（AGENTS.md：borrow-not-merge）。
 
 ## 环境事实
 

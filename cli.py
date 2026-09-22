@@ -126,6 +126,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--dump", required=True, help="JSON list file of the in-session write result")
     s = sub.add_parser("zotero-readback", help="read back and archive the write audit")
     s.add_argument("--manifest", required=True)
+    s = sub.add_parser("zotero-notes", help="evidence notes note.md (CONFIRMED only) + mirror")
+    s.add_argument("--run", required=True)
     sub.add_parser("backup-verify", help="backup freshness + sampled restore check")
 
     return p
@@ -268,6 +270,10 @@ def main(argv: list[str] | None = None) -> int:
         from pipelines import zotero
 
         return _emit(zotero.readback(args.manifest))
+    if cmd == "zotero-notes":
+        from pipelines import zotero
+
+        return _emit(zotero.write_notes(args.run))
     if cmd == "publish":
         return _emit(idea.publish(args.slug, args.run))
     if cmd == "backup-verify":

@@ -78,6 +78,16 @@
       "why": "跨域碰撞源域库（V1 idea_collision.py DOMAIN_BANK 18 域迁移；open-collider 设计借鉴）；idea-brief 引用"
     }
   },
+  "zotero": {
+    "notes_verdicts": {
+      "value": ["CONFIRMED"],
+      "why": "证据笔记只写已确认 claim（未确认结论外溢会污染研究者库；M3.3）"
+    },
+    "tag_prefix": {
+      "value": "idea-os:",
+      "why": "受控标签命名空间：不动插件标签（Reading List 等各用自身前缀；M3.3）"
+    }
+  },
   "pdf": {
     "min_bytes": {
       "value": 100000,
