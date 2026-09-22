@@ -8,9 +8,10 @@ lesson digest from the failure ledger, and pending todos. Legacy keys
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
-from . import canon, feedback, runs, store
+from . import canon, contracts, feedback, runs, store
 
 _LESSON_DISPLAY_CAP = 5  # display truncation only, not a governance gate
 
@@ -136,18 +137,94 @@ def deepread_brief(paper_key: str, text_md: str) -> dict[str, Any]:
             "writer": writer, "verifier": verifier, "blind": True}
 
 
-def idea_brief(seed: str, source_domain: str, target_domain: str) -> dict[str, Any]:
+def _topic_entry(topic_id: str) -> dict[str, Any] | None:
+    """Topic pack lookup (加主题=加数据：knowledge/topics.json)."""
+    if not topic_id:
+        return None
+    try:
+        bank = store.read_json(canon.data_path("knowledge.topics_file"))
+    except (ValueError, OSError):
+        return None
+    for entry in bank.get("topics") or []:
+        if isinstance(entry, dict) and str(entry.get("id")) == topic_id:
+            return dict(entry)
+    return None
+
+
+def _collision_sample(seed: str) -> dict[str, Any] | None:
+    """Deterministic bank sample (seed hash → index): same seed, same domain."""
+    try:
+        bank = store.read_json(canon.data_path("knowledge.collision_bank_file"))
+    except (ValueError, OSError):
+        return None
+    domains = [d for d in (bank.get("domains") or []) if isinstance(d, dict)]
+    if not domains:
+        return None
+    digest = hashlib.sha256(seed.casefold().encode("utf-8")).hexdigest()
+    idx = int(digest[:8], 16) % len(domains)
+    return dict(domains[idx])
+
+
+def idea_brief(seed: str, source_domain: str = "", target_domain: str = "",
+               topic: str = "") -> dict[str, Any]:
     """M2f four-in-one (open-collider orchestration borrow, design only).
 
     Collision triple + failure-lesson injection + 6-attack checklist + novelty
-    multi-query plan across ACTIVE backends. Pure read; judgement in-session."""
-    parts = {k: (v or "").strip() for k, v in
-             (("seed", seed), ("source_domain", source_domain), ("target_domain", target_domain))}
-    if not all(parts.values()):
-        return {"ok": False, "error": "seed, source_domain, and target_domain are all required"}
+    multi-query plan across ACTIVE backends. Pure read; judgement in-session.
+    M3.4 additions: default source/target sampled deterministically from the
+    collision bank, the disproof design pack, and the blind quality-card book.
+    """
+    topic_entry = _topic_entry(topic)
+    seed_text = (seed or "").strip() or str((topic_entry or {}).get("name") or "")
+    if not seed_text:
+        return {"ok": False, "error": "seed (or a known --topic) required"}
+    source = (source_domain or "").strip()
+    target = (target_domain or "").strip()
+    sample = None
+    if not source or not target:
+        sample = _collision_sample(seed_text)
+    if not source and sample:
+        source = str(sample.get("domain") or "")
+    if not target:
+        target = str((topic_entry or {}).get("name") or "") or seed_text
+    parts = {"seed": seed_text, "source_domain": source or seed_text, "target_domain": target}
     base = f"{parts['seed']} {parts['source_domain']} {parts['target_domain']}"
     backends = [str(b) for b in canon.value("search.active")]
-    return {"ok": True, "collision": parts, "lessons": _lessons(),
-            "attacks": list(_ATTACKS),
-            "novelty_plan": [{"query": f"{base} prior work", "backend": b} for b in backends]
-            + [{"query": f"{parts['seed']} {b} review", "backend": b} for b in backends]}
+    out: dict[str, Any] = {
+        "ok": True,
+        "collision": parts,
+        "lessons": _lessons(),
+        "attacks": list(_ATTACKS),
+        "novelty_plan": [{"query": f"{base} prior work", "backend": b} for b in backends]
+        + [{"query": f"{parts['seed']} {b} review", "backend": b} for b in backends],
+        "disproof_pack": {
+            "fields": list(contracts.DISPROOF_FIELDS),
+            "prompts": {
+                "experiment": "fastest falsifying experiment (one concrete run)",
+                "controls": "what is held fixed / what is swapped",
+                "decision_rule": "numeric pass/fail threshold fixed before running",
+                "failure_interpretation": "what a failure would teach (no rescue story)",
+            },
+            "note": "pure design text; no executable scaffold ships",
+        },
+        "quality_pack": {
+            "dims": list(contracts.QUALITY_DIMS),
+            "task": "rescore each dim blind (int 1-5) with a one-line evidence rationale",
+            "divergence_rule": 2,
+            "revision_hint": "any dim diverging by >=2 from the writer card triggers revision",
+            "sees_writer_card": False,
+        },
+    }
+    if topic_entry is not None:
+        out["topic"] = {"id": topic_entry.get("id"), "name": topic_entry.get("name"),
+                        "frontier_domains": topic_entry.get("frontier_domains") or [],
+                        "transfer_pairs": topic_entry.get("transfer_pairs") or []}
+    if sample:
+        template = str(sample.get("template") or "")
+        out["collision_sample"] = {
+            "id": sample.get("id"), "domain": sample.get("domain"),
+            "principle": sample.get("principle"),
+            "template": template.replace("{problem}", parts["seed"]).replace("{anchor}", target),
+            "rule": "seed hash → deterministic index over the collision bank",
+        }
+    return out

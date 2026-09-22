@@ -8,6 +8,7 @@ dims that publish will refuse. idea-pool.json holds in-flight candidates only.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from . import canon, contracts, runs, store
@@ -15,6 +16,47 @@ from . import canon, contracts, runs, store
 
 def _fail(error: str, **extra: Any) -> dict[str, Any]:
     return {"ok": False, "error": error, **extra}
+
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
+_LATIN_RE = re.compile(r"[a-z0-9]{3,}")
+
+
+def _sig_words(text: str) -> set[str]:
+    """V1 core/idea.py:506-524 移植：拉丁 ≥3 字符词 + 中文 2 字 gram，去停用词。"""
+    stop = {str(w).casefold() for w in canon.value("ideas.stopwords")}
+    toks = _LATIN_RE.findall((text or "").casefold())
+    grams: list[str] = []
+    for zh in _CJK_RE.findall(text or ""):
+        if len(zh) <= 4:
+            grams.append(zh)
+        else:
+            grams.extend(zh[i:i + 2] for i in range(len(zh) - 1))
+    return {t for t in [*toks, *grams] if t not in stop and len(t) >= 2}
+
+
+def _avoidance(title: str, seed: str = "") -> dict[str, Any]:
+    """V1 双阈值近似拦截（含 R1C2 停用词修正）：硬命中即拒，弱命中入审计。"""
+    cfg = canon.value("ideas.avoidance") or {}
+    words = _sig_words(title)
+    if len(words) < 3 and seed:
+        words |= _sig_words(seed)
+    blocked: list[dict[str, Any]] = []
+    weak: list[dict[str, Any]] = []
+    for row in store.read_jsonl(store.failure_ledger_path()):
+        other = _sig_words(f"{row.get('title', '')} {row.get('slug', '')} {row.get('reason', '')}")
+        overlap = len(words & other)
+        union = len(words | other)
+        jacc = overlap / union if union else 0.0
+        if not (overlap >= int(cfg.get("report_overlap", 3))
+                or jacc >= float(cfg.get("report_jaccard", 0.35))):
+            continue
+        is_block = (overlap >= int(cfg.get("block_overlap", 4))
+                    or (overlap >= 3 and jacc >= float(cfg.get("block_jaccard", 0.4))))
+        entry = {"ledger_slug": row.get("slug"), "overlap": overlap, "jaccard": round(jacc, 3),
+                 "lesson": row.get("lesson") or row.get("reason"), "blocked": is_block}
+        (blocked if is_block else weak).append(entry)
+    return {"blocked": blocked, "weak": weak}
 
 
 def add_idea(payload: dict[str, Any], run_id: str | None = None,
@@ -26,6 +68,19 @@ def add_idea(payload: dict[str, Any], run_id: str | None = None,
         idea = contracts.IdeaCandidate(**payload)
     except (ValueError, TypeError) as exc:
         return _fail(f"idea rejected: {exc}")
+    avoid = _avoidance(idea.title, str(idea.collision.get("seed") or ""))
+    if avoid["blocked"]:
+        return _fail(
+            "failure-ledger avoidance: title too close to rejected work — revise or point "
+            "at the ledger row before re-adding",
+            hits=avoid["blocked"],
+        )
+    if idea.novelty_log and all(str(e.get("result")) == "empty" for e in idea.novelty_log) \
+            and not idea.screening_note.strip():
+        return _fail(
+            "novelty degradation: every check came back empty — record the downgrade in "
+            "screening_note (zero hits means reach too low, not novelty)"
+        )
     corpus_refs = [r for r in idea.evidence_refs if str(r).startswith("CLM-")]
     if len(corpus_refs) < 3:
         return _fail(f"corpus gate 3+1+1: need >=3 corpus-claim refs, got {len(corpus_refs)}")
@@ -47,6 +102,8 @@ def add_idea(payload: dict[str, Any], run_id: str | None = None,
     hold_dims = sorted(d for d, card in idea.quality_card.items()
                        if int(card.get("score", 5)) <= 2)
     out: dict[str, Any] = {"ok": True, "slug": idea.slug}
+    if avoid["weak"]:
+        out["avoidance_weak"] = avoid["weak"]
     if hold_dims:
         out["hold"] = {"dims": hold_dims,
                        "note": "publish refuses hold dims until revised"}
@@ -59,7 +116,7 @@ def _hold_dims(idea_dict: dict[str, Any]) -> list[str]:
 
 
 def _render_pack(idea_dict: dict[str, Any]) -> dict[str, str]:
-    """M2h delivery 4-pack (V1 DEC-0032/0035 stratification, real templates)."""
+    """M3.4 delivery pack: idea/evidence/novelty/disproof (V1 DEC-0032/0035 + 设计件)."""
     slug = idea_dict["slug"]
     collision = idea_dict.get("collision", {})
     quality = "\n".join(f"- {d}: { (c or {}).get('score') } — {(c or {}).get('rationale', '')}"
@@ -76,11 +133,18 @@ def _render_pack(idea_dict: dict[str, Any]) -> dict[str, str]:
                f"## Quality card\n\n{quality}\n\n## Attacks\n\n{attacks}\n")
     evidence_md = f"# Evidence — {slug}\n\n## Corpus refs (gate 3+1+1)\n\n{refs}\n"
     novelty_md = f"# Novelty — {slug}\n\n## Checks\n\n{novelty}\n\n## Attacks\n\n{attacks}\n"
-    return {"idea.md": idea_md, "evidence.md": evidence_md, "novelty.md": novelty_md}
+    disproof = idea_dict.get("disproof") or {}
+    disproof_md = (f"# Disproof design — {slug}\n\n"
+                   f"## Falsifying experiment\n\n{disproof.get('experiment', '')}\n\n"
+                   f"## Controls\n\n{disproof.get('controls', '')}\n\n"
+                   f"## Decision rule\n\n{disproof.get('decision_rule', '')}\n\n"
+                   f"## Failure interpretation\n\n{disproof.get('failure_interpretation', '')}\n")
+    return {"idea.md": idea_md, "evidence.md": evidence_md, "novelty.md": novelty_md,
+            "disproof.md": disproof_md}
 
 
 def publish(slug: str, run_id: str | None = None) -> dict[str, Any]:
-    """M2h: 4-file delivery + mirror + builtin check + pool removal.
+    """M2h: 5-file delivery (incl. disproof.md) + mirror + builtin check + pool removal.
 
     Delivery root is the source of truth; the pool only holds in-flight work.
     researcher-decision.json ships pending_backfill so feedback-import-v1 can
@@ -130,10 +194,11 @@ def publish(slug: str, run_id: str | None = None) -> dict[str, Any]:
 
 
 def backup_verify() -> dict[str, Any]:
-    """M2h: backup freshness (name parity) + sampled SHA restore check.
+    """M2h: backup freshness (name parity) + SHA restore check.
 
-    Per directory every filename must exist on both sides; SHA is verified on
-    a sample (first two files) to keep the check proportional."""
+    Delivery artifacts are small text files, so every file's SHA is verified
+    (no proportional sampling — the extra file from M3.4 made sampling miss
+    tampering in unsampled names)."""
     delivery, mirror = canon.delivery_root(), canon.idea_mirror_root()
     if not delivery.is_dir():
         return _fail(f"delivery root not found: {delivery}")
@@ -149,7 +214,7 @@ def backup_verify() -> dict[str, Any]:
         if want != have:
             mismatches.append(f"{child.name}: delivery={want} mirror={have}")
             continue
-        for name in want[:2]:
+        for name in want:
             sampled += 1
             if store.sha256_file(child / name) != store.sha256_file(twin / name):
                 mismatches.append(f"{child.name}/{name}: SHA mismatch")

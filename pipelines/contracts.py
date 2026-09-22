@@ -196,6 +196,7 @@ class IdeaCandidate:
     hypothesis: str = ""
     collision: dict[str, str] = field(default_factory=dict)
     disproof: dict[str, str] = field(default_factory=dict)
+    screening_note: str = ""
     quality_card: dict[str, dict[str, Any]] = field(default_factory=dict)
     attacks: list[str] = field(default_factory=list)
     novelty_log: list[dict[str, str]] = field(default_factory=list)

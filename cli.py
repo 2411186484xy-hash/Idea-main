@@ -100,9 +100,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--pairs-only", action="store_true", help="only pairs and the claims in them")
 
     s = sub.add_parser("idea-brief", help="collision + lessons + attacks + novelty plan")
-    s.add_argument("--seed", required=True)
-    s.add_argument("--source", required=True)
-    s.add_argument("--target", required=True)
+    s.add_argument("--seed", default="", help="collision seed (or pass --topic)")
+    s.add_argument("--topic", default="", help="topic id from knowledge/topics.json")
+    s.add_argument("--source", default="", help="source domain (default: deterministic bank sample)")
+    s.add_argument("--target", default="", help="target domain (default: topic name or seed)")
     s = sub.add_parser("idea-add", help="supply-gated idea registration (full brief in M2f)")
     s.add_argument("--payload", required=True, help="JSON object")
     s.add_argument("--run", help="append IDEA_ADD trace to this run")
@@ -240,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "claims-view":
         return _emit(claims.view(args.topic, args.paper_key, args.verdict, args.pairs_only))
     if cmd == "idea-brief":
-        return _emit(report.idea_brief(args.seed, args.source, args.target))
+        return _emit(report.idea_brief(args.seed, args.source, args.target, args.topic))
     if cmd == "idea-add":
         payload = _load_json_arg(args.payload, "--payload")
         if payload is None:

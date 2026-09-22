@@ -23,6 +23,7 @@ def _payload(**over):
             "decision_rule": "region P95 < 0.4mm while in-region coverage stays > 50%",
             "failure_interpretation": "no lift over the global gate means the mask adds no information",
         },
+        "screening_note": "zero hits across backends: downgraded to reach-too-low, not novelty",
         "quality_card": {
             dim: {"score": 3, "rationale": f"{dim} ok"} for dim in (
                 "novelty", "rigor", "feasibility", "clarity", "data_availability", "venue_fit"
@@ -107,6 +108,53 @@ def test_idea_brief_four_in_one(frozen_clock):
     assert len(brief["attacks"]) == 6
     assert {q["backend"] for q in brief["novelty_plan"]} == {"openalex", "arxiv", "crossref", "europepmc", "doaj"}
     assert report.idea_brief("", "s", "t")["ok"] is False
+    assert brief["quality_pack"]["sees_writer_card"] is False
+    assert len(brief["quality_pack"]["dims"]) == 6
+    assert set(brief["disproof_pack"]["fields"]) == {
+        "experiment", "controls", "decision_rule", "failure_interpretation"}
+    assert "collision_sample" not in brief
+
+
+def test_idea_brief_samples_bank_deterministically(frozen_clock):
+    from pipelines import report
+
+    seed = "single-shot fringe projection calibration-free depth"
+    brief = report.idea_brief(seed)
+    assert brief["ok"] and brief["collision"]["source_domain"]
+    sample = brief["collision_sample"]
+    assert sample["id"] and sample["domain"]
+    assert "{problem}" not in sample["template"] and seed in sample["template"]
+    again = report.idea_brief(seed)
+    assert again["collision_sample"]["id"] == sample["id"]
+    topic_brief = report.idea_brief("", topic="single-shot-sl")
+    assert topic_brief["ok"] and topic_brief["topic"]["id"] == "single-shot-sl"
+    assert topic_brief["collision"]["seed"] == "单帧结构光/条纹投影三维重建（含内窥镜场景）"
+    assert report.idea_brief("", topic="ghost-topic")["ok"] is False
+
+
+def test_avoidance_blocks_near_duplicate_titles(frozen_clock):
+    from pipelines import idea, store
+
+    store.append_jsonl(store.failure_ledger_path(),
+                       {"schema_version": 3, "slug": "old-fringe-idea", "stage": "verdict",
+                        "reason": "fringe disparity monocular depth refinement rejected earlier",
+                        "lesson": "refinement loop had no measurable lift", "at": "2026-09-21T12:00:00Z"})
+    blocked = idea.add_idea(_payload(), lessons_read=True)
+    assert not blocked["ok"] and "avoidance" in blocked["error"]
+    assert blocked["hits"][0]["ledger_slug"] == "old-fringe-idea"
+    assert blocked["hits"][0]["overlap"] >= 3
+    far = idea.add_idea(_payload(slug="other-slug",
+                                 title="Coded-aperture event-camera triangulation for specular surfaces"),
+                         lessons_read=True)
+    assert far["ok"]
+
+
+def test_all_empty_novelty_needs_screening_note(frozen_clock):
+    from pipelines import idea
+
+    blocked = idea.add_idea(_payload(screening_note=""), lessons_read=True)
+    assert not blocked["ok"] and "screening_note" in blocked["error"]
+    assert idea.add_idea(_payload(), lessons_read=True)["ok"]
 
 
 def test_publish_delivers_verifies_and_removes(frozen_clock):
@@ -116,9 +164,13 @@ def test_publish_delivers_verifies_and_removes(frozen_clock):
     assert idea.add_idea(_payload(), run_id="IDEARUN-20260921-120000", lessons_read=True)["ok"]
     out = idea.publish("fringe-scale-disambiguation", run_id="IDEARUN-20260921-120000")
     assert out["ok"] and out["sha_match"] is True
-    assert out["files"] == ["evidence.md", "idea.md", "novelty.md", "researcher-decision.json"]
+    assert out["files"] == ["disproof.md", "evidence.md", "idea.md", "novelty.md",
+                            "researcher-decision.json"]
     slug_dir = canon.delivery_root() / "fringe-scale-disambiguation"
     assert (slug_dir / "idea.md").read_text(encoding="utf-8").startswith("# Bidirectional")
+    disproof_md = (slug_dir / "disproof.md").read_text(encoding="utf-8")
+    assert disproof_md.startswith("# Disproof design — fringe-scale-disambiguation")
+    assert "region P95 < 0.4mm" in disproof_md and "## Failure interpretation" in disproof_md
     assert store.read_json(store.idea_pool_path()) == []
     assert runs.load("IDEARUN-20260921-120000").trace[-1]["event"] == "PUBLISH"
     assert not idea.publish("fringe-scale-disambiguation")["ok"]

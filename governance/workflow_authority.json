@@ -78,6 +78,19 @@
       "why": "跨域碰撞源域库（V1 idea_collision.py DOMAIN_BANK 18 域迁移；open-collider 设计借鉴）；idea-brief 引用"
     }
   },
+  "ideas": {
+    "avoidance": {
+      "value": {"block_overlap": 4, "block_jaccard": 0.4, "report_overlap": 3, "report_jaccard": 0.35},
+      "why": "V1 core/idea.py:547-554 双阈值近似拦截移植：重叠 ≥4 或 ≥3 且 jaccard ≥0.40 硬拒；弱命中（≥3 或 jacc 0.35）入审计"
+    },
+    "stopwords": {
+      "value": ["the", "a", "an", "for", "and", "of", "in", "on", "with", "to", "via", "using",
+                "based", "from", "into", "through", "under", "over", "between", "forward", "light",
+                "structured", "system", "response", "self", "depth", "calibration", "propagation",
+                "measurement", "method", "approach"],
+      "why": "V1 core/idea.py:468-503 停用词表迁移（含 R1C2 反例：forward/light/structured 等泛词会主导 Jaccard 误拦）"
+    }
+  },
   "zotero": {
     "notes_verdicts": {
       "value": ["CONFIRMED"],
