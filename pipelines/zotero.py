@@ -33,12 +33,31 @@ def _item_key(item: dict[str, Any]) -> str:
     return f"title:{str(item.get('title') or '').strip().lower()}"
 
 
+def _creators(authors: list[str]) -> list[dict[str, str]]:
+    """Two-field creators for space-separated ASCII names, single-field otherwise.
+
+    Zotero's API accepts either firstName+lastName or a lone name. CJK names carry
+    no space-separated parts, so the two-field form would corrupt them; single-field
+    is also what Zotero uses for institutional authors, though a name like
+    "Endo Group" is indistinguishable from a two-token person name and will be split.
+    """
+    out: list[dict[str, str]] = []
+    for name in authors:
+        parts = str(name).strip().split()
+        if len(parts) > 1 and all(p.isascii() for p in parts):
+            out.append({"creatorType": "author", "firstName": " ".join(parts[:-1]),
+                        "lastName": parts[-1]})
+        elif parts:
+            out.append({"creatorType": "author", "name": " ".join(parts)})
+    return out
+
+
 def _template(cand: contracts.PaperCandidate) -> dict[str, Any]:
     """pyzotero create_items-compatible dict (list payload, verified signature)."""
     doi = str(cand.identifiers.get("doi") or "").strip()
     arxiv = str(cand.identifiers.get("arxiv_id") or "").strip()
     item: dict[str, Any] = {"itemType": "journalArticle", "title": cand.title,
-                            "creators": [], "collections": [],
+                            "creators": _creators(cand.authors), "collections": [],
                             "tags": [{"tag": f"idea-os:{cand.paper_key}"}]}
     if doi:
         item["DOI"] = doi

@@ -24,10 +24,15 @@
 现象：`mineru --version` 冷启动约 42s（import torch）；30s 状态探针超时造成假阴性，改为 120s 后复测正常（V1 path-ownership-and-parity-review #2；`.venv-mineru` import client 42.1s 实测）。
 动作：`pipelines/pdf.py`（M2c）里 MinerU 只做第二通道，探针超时按冷启动量级设；探针不过不阻断 PyMuPDF 文本层，降级记 `fallback_from`。
 
-## 5. GUI 寿命不可依赖
+## 5. GUI 寿命不可依赖（2026-09-22 复测：写面其实可用，此前记的"离线"是误判）
 
-现象：Zotero 本地 API 依赖桌面进程存活；沙箱内常见 `tasklist` 无 zotero 进程，`localhost:23119` 直接 502（V1 project-review-20260902；objective-review R2：`api_reachable=false` 即 review_queue 归零）。
-动作：Zotero 三段式本就半自动（manifest 先行、回读审计）；离线是预期分支——manifest 照出、写面暂停、可模拟写入验证，绝不把"进程不在"当数据错。
+现象：Zotero 是 GUI 进程，本地 API（`localhost:23119`）随进程存活。沙箱内由命令启动的 GUI 在该命令结束时即被回收；分离启动（`DETACHED_PROCESS + CREATE_BREAKAWAY_FROM_JOB`）同样逃不掉；只有长持有任务能让它跨命令存活。`schtasks.exe` 在沙箱程序黑名单内，做不了真正独立的启动。故「进程不在」是常态而非数据错。
+动作：要用写面就先启动 Zotero 再跑三段式。2026-09-22 实测事实：
+- **写面可用**，两道闸：缺 `Zotero-Server-ID` 头 → `428`；缺本地 API key → `401`（`POST /api/local/authorize` 弹窗，需人点一次）。授权调用必须放宽客户端超时（`pyzotero._client.httpx2.Client(timeout=900.0)`），否则人未点即 `ReadTimeout`。
+- profile 已设 `extensions.zotero.httpServer.localAPI.enabled = true`，无需改动。
+- **插件侧载**：`.xpi` 放进 `<profile>/extensions/<addon-id>.xpi` 后 Zotero 只注册为 `userDisabled=true`（不激活）；须在 Zotero **关闭状态**下把 `extensions.json` 中该项改为 `active/seen=true, userDisabled=false`，重启才加载。
+- `create_items()` 的返回体不含 title/DOI，写入审计的 dump 必须按 `idea-os:` 标签从库里回读真实条目，否则校验全成空 key。
+- 离线仍是预期分支：manifest 照出、写面暂停，绝不把"进程不在"当数据错。
 
 ## 6. safe-delete：只删临时态，删前列目录确认
 

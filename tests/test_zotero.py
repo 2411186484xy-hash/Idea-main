@@ -21,9 +21,23 @@ def _payload(**over):
     return base
 
 
+def test_creators_split_western_and_keep_cjk_single_field():
+    assert zotero._creators(["Ada Lovelace", "Alan Turing"]) == [
+        {"creatorType": "author", "firstName": "Ada", "lastName": "Lovelace"},
+        {"creatorType": "author", "firstName": "Alan", "lastName": "Turing"},
+    ]
+    # CJK names carry no space-separated parts: single-field form, never split
+    assert zotero._creators(["霍嘉燚", "  ", ""]) == [{"creatorType": "author", "name": "霍嘉燚"}]
+    # known limitation: an all-ASCII institutional name is indistinguishable from a
+    # two-token person name, so it is split (documented in _creators)
+    assert zotero._creators(["Endo Group"]) == [
+        {"creatorType": "author", "firstName": "Endo", "lastName": "Group"}
+    ]
+
+
 def _setup_two(frozen_clock):  # noqa: ARG001 - fixture orders the clock
     runs.start("weekly", RUN)
-    assert papers.add_paper(RUN, _payload())["ok"]
+    assert papers.add_paper(RUN, _payload(authors=["Ada Lovelace", "霍嘉燚"]))["ok"]
     assert papers.add_paper(RUN, _payload(title="Second",
                                          identifiers={"doi": "10.2/other"}))["ok"]
 
@@ -35,6 +49,11 @@ def test_manifest_stages_items_with_sha(frozen_clock):
     record = store.read_json(store.knowledge_root() / "zotero" / f"manifest-{out['sha256'][:12]}.json")
     assert record["items"][0]["itemType"] == "journalArticle"
     assert record["items"][0]["DOI"] == "10.1/deep"
+    assert record["items"][0]["creators"] == [
+        {"creatorType": "author", "firstName": "Ada", "lastName": "Lovelace"},
+        {"creatorType": "author", "name": "霍嘉燚"},
+    ]
+    assert record["items"][1]["creators"] == []  # candidate without authors stays empty
     assert record["run_id"] == RUN
 
 

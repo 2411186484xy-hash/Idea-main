@@ -24,6 +24,8 @@ def test_openalex_adapter_restores_and_gates(monkeypatch):
                 "cited_by_count": 42,
                 "is_retracted": False,
                 "primary_location": {"source": {"display_name": "Nature"}},
+                "authorships": [{"author": {"display_name": "Ada Lovelace"}},
+                                {"author": {"display_name": "  "}}],
             },
             {"title": "No identifier", "abstract_inverted_index": {"x": [0]}},
         ]
@@ -35,6 +37,7 @@ def test_openalex_adapter_restores_and_gates(monkeypatch):
     assert cand["paper_key"] == "doi:10.1/deep"
     assert cand["abstract"] == "deep read"
     assert cand["venue"] == "Nature" and cand["cited_by_count"] == 42
+    assert cand["authors"] == ["Ada Lovelace"]  # blank author rows normalised away
     assert cand["retraction"]["status"] == "none"
     assert errors[0]["category"] == "gate"  # identifier-less work dropped, not crash
 
@@ -67,6 +70,8 @@ ARXIV_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <title> A  Title </title>
     <summary>  abstract text  </summary>
     <published>2025-01-15T00:00:00Z</published>
+    <author><name>Grace Hopper</name></author>
+    <author><name> Alan Turing </name></author>
   </entry>
 </feed>"""
 
@@ -79,6 +84,7 @@ def test_arxiv_adapter_parses(monkeypatch):
     cand = results[0]
     assert cand["paper_key"] == "arxiv:2501.12345v1"
     assert cand["abstract"] == "abstract text"
+    assert cand["authors"] == ["Grace Hopper", "Alan Turing"]
     assert cand["year"] == 2025 and cand["venue"] == "arXiv"
 
 
@@ -103,7 +109,8 @@ def test_crossref_adapter_strips_abstract_and_flags_retraction(monkeypatch):
         {"DOI": "10.1/clean", "title": ["Clean"],
          "abstract": "<jats:p>plain abstract</jats:p>",
          "container-title": ["Nature"], "published-print": {"date-parts": [[2024]]},
-         "is-referenced-by-count": 7},
+         "is-referenced-by-count": 7,
+         "author": [{"given": "Alan", "family": "Turing"}, {"name": "Endo Group"}]},
         {"DOI": "10.1/bad", "title": ["Bad"], "updated-by": [{"type": "retraction"}]},
         {"title": ["No DOI"]},
     ]}})
@@ -113,6 +120,7 @@ def test_crossref_adapter_strips_abstract_and_flags_retraction(monkeypatch):
     clean = next(c for c in results if c["paper_key"] == "doi:10.1/clean")
     assert clean["abstract"] == "plain abstract" and clean["year"] == 2024
     assert clean["venue"] == "Nature" and clean["retraction"]["status"] == "none"
+    assert clean["authors"] == ["Alan Turing", "Endo Group"]
     bad = next(c for c in results if c["paper_key"] == "doi:10.1/bad")
     assert bad["retraction"]["status"] == "flagged"
     assert bad["retraction"]["checked_backends"] == ["crossref_update_to"]
@@ -127,10 +135,25 @@ def test_crossref_transport_failure_is_envelope(monkeypatch):
     assert results == [] and errors[0]["category"] in ("network", "http")
 
 
+def test_crossref_titleless_row_is_gated_not_raised(monkeypatch):
+    """Real-registry rows can lack a title; that must be a gate envelope, not a raise."""
+    body = json.dumps({"message": {"items": [
+        {"DOI": "10.1/blank-title", "title": [""]},
+        {"DOI": "10.1/no-title-key"},
+        {"DOI": "10.1/ok", "title": ["Kept"]},
+    ]}})
+    monkeypatch.setattr(search, "_fetch", lambda url, params, timeout: (body, None))
+    results, errors = search.crossref_search("x", limit=3)
+    assert [c["paper_key"] for c in results] == ["doi:10.1/ok"]
+    assert len(errors) == 2 and all(e["category"] == "gate" for e in errors)
+
+
 def test_europepmc_adapter_maps_doi_and_pmid(monkeypatch):
     body = json.dumps({"resultList": {"result": [
         {"doi": "10.2/a", "title": "A", "abstractText": "abs",
-         "pubYear": "2023", "journalTitle": "J", "citedByCount": 3},
+         "pubYear": "2023", "journalTitle": "J", "citedByCount": 3,
+         "authorList": {"author": [{"fullName": "Jia-Yi Huo"},
+                                   {"collectiveName": "Endo Group"}]}},
         {"pmid": "123", "title": "B"},
         {"title": "No id"},
     ]}})
@@ -139,6 +162,8 @@ def test_europepmc_adapter_maps_doi_and_pmid(monkeypatch):
     assert len(results) == 2 and len(errors) == 1
     assert results[0]["paper_key"] == "doi:10.2/a" and results[0]["abstract"] == "abs"
     assert results[0]["year"] == 2023 and results[1]["paper_key"] == "pmid:123"
+    assert results[0]["authors"] == ["Jia-Yi Huo", "Endo Group"]
+    assert results[1]["authors"] == []
 
 
 def test_search_all_four_backends_dispatch(monkeypatch):

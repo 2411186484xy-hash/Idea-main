@@ -19,3 +19,6 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+
+# WorkBuddy project data (memory/logs, not code)
+.workbuddy/

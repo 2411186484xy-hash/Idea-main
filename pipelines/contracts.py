@@ -115,6 +115,7 @@ class Run:
 class PaperCandidate:
     schema_version: int = SCHEMA_VERSION
     title: str = ""
+    authors: list[str] = field(default_factory=list)
     paper_key: str = ""
     identifiers: dict[str, str] = field(default_factory=dict)
     discovery_class: str = "direct"

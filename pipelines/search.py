@@ -97,11 +97,13 @@ def restore_abstract(inverted_index: dict[str, list[int]] | None) -> str:
 
 def _candidate(*, title: str, identifiers: dict[str, str], backend: str, abstract: str,
                year: int | None, venue: str | None, cited_by: int | None,
-               retracted: bool, checked_backend: str) -> contracts.PaperCandidate | None:
-    if not any(identifiers.values()):
+               retracted: bool, checked_backend: str,
+               authors: list[str]) -> contracts.PaperCandidate | None:
+    if not any(identifiers.values()) or not title.strip():  # blank title fails contract
         return None
     return contracts.PaperCandidate(
         title=title.strip(),
+        authors=[a for a in (s.strip() for s in authors) if a],
         identifiers=identifiers,
         discovery_class="direct",
         source_backend=backend,
@@ -110,11 +112,9 @@ def _candidate(*, title: str, identifiers: dict[str, str], backend: str, abstrac
         year=year,
         venue=venue,
         cited_by_count=cited_by,
-        retraction={
-            "status": "flagged" if retracted else "none",
-            "checked_backends": [checked_backend] if retracted else [],
-            "checked_at": store.now() if retracted else "",
-        },
+        retraction={"status": "flagged" if retracted else "none",
+                    "checked_backends": [checked_backend] if retracted else [],
+                    "checked_at": store.now() if retracted else ""},
     )
 
 
@@ -125,8 +125,7 @@ def openalex_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], 
     if err or body is None:
         return [], [err or {"source": "openalex", "category": "network", "message": "no body"}]
     works = json.loads(body).get("results", [])
-    results: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
+    results, errors = [], []
     for w in works:
         source = (w.get("primary_location") or {}).get("source") or {}
         doi = str(w.get("doi") or "").replace("https://doi.org/", "").strip()
@@ -135,9 +134,10 @@ def openalex_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], 
             abstract=restore_abstract(w.get("abstract_inverted_index")),
             year=w.get("publication_year"), venue=source.get("display_name"),
             cited_by=w.get("cited_by_count"), retracted=bool(w.get("is_retracted")),
-            checked_backend="openalex_is_retracted")
+            checked_backend="openalex_is_retracted",
+            authors=[str((a.get("author") or {}).get("display_name") or "") for a in (w.get("authorships") or [])])
         if cand is None:
-            errors.append(_envelope("openalex", "gate", f"work without identifier dropped: {str(w.get('title'))[:60]}"))
+            errors.append(_envelope("openalex", "gate", f"row dropped (missing identifier or title): {str(w.get('id'))[:60]}"))
             continue
         results.append(store.to_dict(cand))
     return results, errors
@@ -178,14 +178,15 @@ def arxiv_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], lis
             identifiers={"arxiv_id": arxiv_id} if arxiv_id else {}, backend="arxiv",
             abstract=(entry.findtext("a:summary", default="", namespaces=_ARXIV_NS) or "").strip(),
             year=int(published[:4]) if published[:4].isdigit() else None, venue="arXiv",
-            cited_by=None, retracted=False, checked_backend="arxiv")
+            cited_by=None, retracted=False, checked_backend="arxiv",
+            authors=[(n.text or "") for n in entry.findall("a:author/a:name", _ARXIV_NS)])
         if cand is not None:
             results.append(store.to_dict(cand))
     return results, []
 
 def crossref_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Crossref discovery + update-to/updated-by retraction channel (M2a)."""
-    select = "DOI,title,abstract,container-title,published,created,is-referenced-by-count,updated-by,update-to"
+    select = "DOI,title,abstract,author,container-title,published,created,is-referenced-by-count,updated-by,update-to"
     body, err = _fetch("https://api.crossref.org/works", {"query": query, "rows": limit, "select": select}, int(canon.value("search.timeout_seconds")))
     if err or body is None:
         return [], [err or {"source": "crossref", "category": "network", "message": "no body"}]
@@ -193,8 +194,7 @@ def crossref_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], 
         items = json.loads(body).get("message", {}).get("items", [])
     except ValueError as exc:
         return [], [_envelope("crossref", "parse", f"json parse: {exc}")]
-    results: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
+    results, errors = [], []
     for it in items:
         doi = str(it.get("DOI") or "").strip()
         cand = _candidate(title=str((it.get("title") or [""])[0] or ""),
@@ -202,9 +202,10 @@ def crossref_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]], 
             abstract=_strip_tags(it.get("abstract")), year=_crossref_year(it),
             venue=str((it.get("container-title") or [None])[0] or "") or None,
             cited_by=it.get("is-referenced-by-count"), retracted=_crossref_retracted(it),
-            checked_backend="crossref_update_to")
+            checked_backend="crossref_update_to",
+            authors=[f"{a.get('given', '')} {a.get('family', '')}".strip() or str(a.get("name") or "") for a in (it.get("author") or [])])
         if cand is None:
-            errors.append(_envelope("crossref", "gate", f"work without DOI dropped: {str(it.get('title'))[:60]}"))
+            errors.append(_envelope("crossref", "gate", f"row dropped (missing DOI or title): {str(it.get('DOI'))[:60]}"))
             continue
         results.append(store.to_dict(cand))
     return results, errors
@@ -218,8 +219,7 @@ def europepmc_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]],
         hits = json.loads(body).get("resultList", {}).get("result", [])
     except ValueError as exc:
         return [], [_envelope("europepmc", "parse", f"json parse: {exc}")]
-    results: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
+    results, errors = [], []
     for r in hits:
         doi = str(r.get("doi") or "").strip()
         pmid = str(r.get("pmid") or "").strip()
@@ -228,7 +228,8 @@ def europepmc_search(query: str, limit: int = 15) -> tuple[list[dict[str, Any]],
             identifiers={"doi": doi} if doi else ({"pmid": pmid} if pmid else {}),
             backend="europepmc", abstract=str(r.get("abstractText") or "").strip(),
             year=int(year) if year.isdigit() else None, venue=r.get("journalTitle"),
-            cited_by=r.get("citedByCount"), retracted=False, checked_backend="europepmc")
+            cited_by=r.get("citedByCount"), retracted=False, checked_backend="europepmc",
+            authors=[str(a.get("fullName") or a.get("collectiveName") or "") for a in ((r.get("authorList") or {}).get("author") or [])])
         if cand is None:
             errors.append(_envelope("europepmc", "gate", f"hit without identifier dropped: {str(r.get('title'))[:60]}"))
             continue
