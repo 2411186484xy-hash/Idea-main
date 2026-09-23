@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pipelines import papers, runs
+from pathlib import Path
+
+from pipelines import canon, papers, runs
 
 RUN = "WEEKLYRUN-20260921-120000"
 GOOD_PDF = b"%PDF-1.4\n" + b"0" * 100_100 + b"\n%%EOF\n"
@@ -65,7 +67,7 @@ def test_pdf_archive_mirrors_with_sha(frozen_clock, tmp_path):
 def test_pdf_archive_refuses_forbidden_and_missing(frozen_clock):
     runs.start("weekly", RUN)
     assert not papers.add_paper(RUN, _payload(), pdf="nope.pdf")["ok"]
-    hit = papers.add_paper(RUN, _payload(), pdf="E:\\Project\\x.pdf")
+    hit = papers.add_paper(RUN, _payload(), pdf=str(Path(canon.forbidden_roots()[0]) / "x.pdf"))
     assert not hit["ok"] and "forbidden" in hit["error"]
     assert runs.load(RUN).paper_candidates == []
 

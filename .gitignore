@@ -11,7 +11,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Never commit binaries or secrets (papers live on E:\Paper, not here)
+# Never commit binaries or secrets (papers live in the canon paper root, not here)
 *.pdf
 *.png
 *.zip

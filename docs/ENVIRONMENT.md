@@ -1,4 +1,4 @@
-# ENVIRONMENT（沙箱实测 6 条，应对已内置在代码里）
+# ENVIRONMENT（沙箱实测 6 条 + 迁移本机化 1 条；应对已内置在代码里）
 
 > 本文件只记"环境是什么样"，不记阈值（数值单真源仍是 `governance/workflow_authority.json`）。
 > 出处：V1 仓只读实测（`AGENTS.md` 调用通道、`outputs/*202609*.md`）+ 本仓 M0 会话复测。
@@ -38,3 +38,16 @@
 
 动作：唯一删除入口 `store.delete_tree` 只被 `runs.finish` 调用（收口即删 run 目录）；知识层账本只追加、git 跟踪可恢复，不删。
 纪律：删前 `Get-ChildItem` 确认路径；禁碰 `C:\Windows*`、`C:\Program Files*`；测试另有污染守卫（`tests/conftest.py`：真实 knowledge/runs 零写入，违者整席红）。
+
+## 7. 迁移本机化（2026-09-23 本机实测；旧机 → 本机）
+
+现象：项目自旧机迁移（旧机用户 `User`、数据在 E 盘）。
+
+- 本机仅 C:/D:，无 E 盘：canon identity 四根改 `D:\Research\{Idea, Paper, Backup\Idea, Backup\Paper}`（用户裁决，why 已记 canon）。
+- forbidden_input_roots：`E:\Project`/`trae-input` 跨机保留（盘符缺席即自然失效、外接盘回来仍生效）；旧机用户路径换 `C:\Users\24111\Documents\3D重建科研`。
+- 工具链在盘但不在 PATH：Python 3.13.15（`%LOCALAPPDATA%\Programs\Python\Python313`）、PortableGit 2.55（`%LOCALAPPDATA%\Programs\PortableGit\cmd`）；`python` 可能命中应用商店占位程序，一律绝对路径或仓内 `.venv`。winget 本机损坏（`0x80073cfc`），装工具走官方直下。
+- 跨机 `.venv` 失效（旧机 uv trampoline 指向 `C:\Users\User\...`）：仓内 `.venv` 用本机 Python 3.13 重建（pytest/ruff 按 pyproject dev 组）。
+- PyPI 直连不稳（同一 URL 46s↔2s 量级波动）；GitHub 直连可用。git 全局有按 URL 代理 `127.0.0.1:7897`（Clash）：Clash 未起时 git 走代理必失败，单次可 `-c http.https://github.com/.proxy=` 绕行，不改全局配置。
+- 迁移残缺：`.git/refs/` 目录整体缺失 → git 拒认仓库（要求 refs/ 存在）；对象只带 tip 部分在盘，已从完整克隆 `D:\AppData\Project\Idea-fresh` fetch 补齐（HEAD 闭包完整；reflog 旧条目悬空属无害残留）。
+
+动作：换机先跑 `python cli.py validate --strict` + `python -m pytest -q`；数据根不存在时各命令如实信封，不假设 E 盘。

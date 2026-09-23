@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from pipelines import pdf
+from pipelines import canon, pdf
 
 RUN = "WEEKLYRUN-20260921-120000"
 GOOD_PDF = b"%PDF-1.4\n" + b"0" * 100_100 + b"\n%%EOF\n"
@@ -121,7 +121,7 @@ def test_extract_page_error_isolation(monkeypatch, tmp_path):
 def test_extract_envelopes(monkeypatch, tmp_path):
     missing = pdf.extract(str(tmp_path / "nope.pdf"))
     assert not missing["ok"] and "not found" in missing["error"]
-    blocked = pdf.extract("E:\\Project\\x.pdf")
+    blocked = pdf.extract(str(Path(canon.forbidden_roots()[0]) / "x.pdf"))
     assert not blocked["ok"] and "forbidden" in blocked["error"]
     monkeypatch.setattr(pdf, "_import_fitz", lambda: None)
     src = _write_pdf(tmp_path, "c.pdf")

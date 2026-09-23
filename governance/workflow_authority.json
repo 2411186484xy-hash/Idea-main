@@ -4,24 +4,24 @@
   "lineage": "V2-0002: port-style rewrite (M0) of the v1.1 skeleton. V1 (科研-Idea) stays read-only in its own repo; only validated assets were ported (docs/FOUNDATION-DESIGN.md §1.2).",
   "identity": {
     "delivery_root": {
-      "value": "E:\\Idea",
-      "why": "用户文件架构定调：成品交付区（V1 已有 29 目录）；下游两仓只读，永不回写"
+      "value": "D:\\Research\\Idea",
+      "why": "本机化 2026-09-23：本机无 E: 盘，用户裁决四根落 D:\\Research；成品交付区（V1 已有 29 目录）；下游两仓只读，永不回写"
     },
     "paper_root": {
-      "value": "E:\\Paper",
-      "why": "用户定调：paper-add 归档真源 library/<paper_key>/，_inbox 为研究者投入区"
+      "value": "D:\\Research\\Paper",
+      "why": "本机化 2026-09-23：同一裁决；paper-add 归档真源 library/<paper_key>/，_inbox 为研究者投入区"
     },
     "paper_mirror_root": {
-      "value": "E:\\Backup\\Paper",
-      "why": "用户定调：paper-add 归档即镜像；V1 已在用的备份区"
+      "value": "D:\\Research\\Backup\\Paper",
+      "why": "本机化 2026-09-23：同一裁决；paper-add 归档即镜像；V1 已在用的备份区"
     },
     "idea_mirror_root": {
-      "value": "E:\\Backup\\Idea",
-      "why": "用户定调：publish 即镜像；backup-verify 做新鲜度与抽样恢复"
+      "value": "D:\\Research\\Backup\\Idea",
+      "why": "本机化 2026-09-23：同一裁决；publish 即镜像；backup-verify 做新鲜度与抽样恢复"
     },
     "forbidden_input_roots": {
-      "value": ["E:\\Project", "trae-input", "C:\\Users\\User\\Documents\\3D重建科研"],
-      "why": "AGENTS.md 红线：禁入区，任何命令不得读取"
+      "value": ["E:\\Project", "trae-input", "C:\\Users\\24111\\Documents\\3D重建科研"],
+      "why": "AGENTS.md 红线：禁入区，任何命令不得读取；前两条跨机保留（盘符缺席则自然失效、外接盘回来仍生效），第三条随本机用户更新（2026-09-23）"
     }
   },
   "scope_boundary": {

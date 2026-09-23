@@ -9,7 +9,7 @@
 ## 0. 三条根原则（代替 v1.1 的"冻结表"）
 
 1. **做对一次**：底层 = 契约（contracts.py 数据模型）+ 纪律（store.py 全仓唯一写入口）+ 端口（search/pdf/zotero 隔离易变外部）。靠分层与测试保持形状，不靠冻结机制。
-2. **吸收即删（数据生命周期）**：run 是临时工作状态。收口（完成或放弃）→ 产物早已实时写入知识层/交付区 → **run 文件删除**。磁盘上只留"现在还活着的"：claims 知识、在途 idea、教训、反馈、session-log 一行。**git 是仓库的备份；E:\Backup 是交付物的备份；知识层是唯一的机器记忆。** 没有冻结件、没有隔离区、没有归档目录。
+2. **吸收即删（数据生命周期）**：run 是临时工作状态。收口（完成或放弃）→ 产物早已实时写入知识层/交付区 → **run 文件删除**。磁盘上只留"现在还活着的"：claims 知识、在途 idea、教训、反馈、session-log 一行。**git 是仓库的备份；D:\Research\Backup 是交付物的备份；知识层是唯一的机器记忆。** 没有冻结件、没有隔离区、没有归档目录。
 3. **少即是稳**：每加一个机制先问"V1 验证过它的价值吗？没有 → 不加"。命令 21 个、模块 13+1 个、canon ≤200 行、pipelines+cli ≤4k 行。
 
 ### 0.1 文件架构（三区 · 含生命周期标注）
@@ -33,20 +33,20 @@
   tests/       conftest + 每模块测试 + test_architecture + test_docs
   .gitattributes(LF)  .pre-commit-config.yaml  .github/workflows/ci.yml
 
-区2 E 盘交付区（只写交付物，永不写状态/账本）
-  E:\Paper   _inbox\(研究者投入的新 PDF) → library\<paper_key>\（paper-add 归档）
-  E:\Idea    \<slug>\（publish 5 件套 + researcher-decision.json；V1 已有 29 目录）
-  下游两仓只读 E:\Idea，永不回写。
+区2 交付区（D:\Research · 只写交付物，永不写状态/账本）
+  D:\Research\Paper   _inbox\(研究者投入的新 PDF) → library\<paper_key>\（paper-add 归档）
+  D:\Research\Idea    \<slug>\（publish 5 件套 + researcher-decision.json；V1 已有 29 目录）
+  下游两仓只读 D:\Research\Idea，永不回写。
 
-区3 E 盘备份区（镜像，V1 已在用）
-  E:\Backup\Paper ← E:\Paper（paper-add 归档即镜像）
-  E:\Backup\Idea  ← E:\Idea（publish 即镜像）
+区3 备份区（D:\Research\Backup · 镜像，V1 已在用）
+  D:\Research\Backup\Paper ← D:\Research\Paper（paper-add 归档即镜像）
+  D:\Research\Backup\Idea  ← D:\Research\Idea（publish 即镜像）
   backup-verify：新鲜度检查 + 全件 SHA 恢复验证。
 
-禁入（canon forbidden_input_roots）：E:\Project、trae-input、C:\Users\User\Documents\3D重建科研。
+禁入（canon forbidden_input_roots）：E:\Project、trae-input、C:\Users\24111\Documents\3D重建科研。
 ```
 
-路径纪律：四个 E 盘根只读 canon identity，代码零硬编码；测试中 knowledge/runs/E 盘根全部经 `IDEAOS_*` 环境变量重定向（conftest session 级），真实 E 盘与真实账本零写入。
+路径纪律：四个数据根只读 canon identity，代码零硬编码；测试中 knowledge/runs/数据根全部经 `IDEAOS_*` 环境变量重定向（conftest session 级），真实数据根与真实账本零写入。
 
 ---
 
@@ -65,7 +65,7 @@
 | migrate 迁移命令 | 删 | YAGNI；加载器拒绝未知 schema_version；真要迁移时数据层是小 jsonl，一次性脚本 + git 留痕 |
 | run-status / search-log / delivery-check 命令 | 并入 | session-brief 显活跃 run；query-brief 显查询历史；publish 内置交付校验 |
 | contracts 字段冻结测试 | 删 | 正常单测 + schema_version 足够；"只增不改"是意愿不是锁 |
-| run.artifacts[] 登记表 | 删 | 产物各有真源：claims→账本、PDF→E:\Paper、交付→E:\Idea；run 不需要再记一份 |
+| run.artifacts[] 登记表 | 删 | 产物各有真源：claims→账本、PDF→canon paper_root、交付→canon delivery_root；run 不需要再记一份 |
 
 ### 1.2 V1 有效资产 → 继承（15 项，用户定调：V1 不是一无是处）
 
@@ -80,7 +80,7 @@
 | 6 维质量卡 + 6 攻击清单 | canon 维度（novelty/rigor/feasibility/clarity/data_availability/venue_fit）+ hold 规则 |
 | Zotero 三段式 manifest+SHA+回读 | 原样保留（行业空白：无同类 MCP 仓有回读审计） |
 | 失败账本 → 下次生成前强制注入 | failure-ledger.jsonl + lesson 字段；idea-brief 注入、idea-add 校验已读 |
-| 交付 4 件套（DEC-0032/0035 分层） | publish 真实模板 + 内置校验 + 镜像 E:\Backup\Idea |
+| 交付 4 件套（DEC-0032/0035 分层） | publish 真实模板 + 内置校验 + 镜像 canon idea_mirror_root |
 | 反馈回路机制 | **第一里程碑**：feedback-import-v1 先回填 29 存量，coverage>0 前不扩供给 |
 | 网络纪律（OpenAlex polite pool、arXiv 3s 间隔、UA） | search.py 常量 + canon |
 | SSL certifi 兜底 / 代理清空（沙箱实测） | search.py 内置 + ENVIRONMENT.md 记事实 |
@@ -189,7 +189,7 @@ partial --run-finish --absorb "gap-note"--> 同 completed 路径（放弃收口�
 
 **idea 生命周期**：draft →(publish)→ published（交付区为真源，**pool 除名**）→ verdict 回填 feedback.jsonl；rejected → failure-ledger 记 lesson。**idea-pool.json 永远只含在途工作。**
 
-**单写者所有权**（validate 自检）：runs/ → runs.py；corpus-claims → claims.py；idea-pool → idea.py；feedback → feedback.py；failure-ledger → feedback.py（reject 回填）/ idea.py（读取）；zotero 件 → zotero.py；E:\Paper 归档+镜像 → paper-add；library note.md → zotero-notes；E:\Idea 交付+镜像 → publish；canon → 人工。
+**单写者所有权**（validate 自检）：runs/ → runs.py；corpus-claims → claims.py；idea-pool → idea.py；feedback → feedback.py；failure-ledger → feedback.py（reject 回填）/ idea.py（读取）；zotero 件 → zotero.py；canon paper_root 归档+镜像 → paper-add；library note.md → zotero-notes；canon delivery_root 交付+镜像 → publish；canon → 人工。
 
 ---
 

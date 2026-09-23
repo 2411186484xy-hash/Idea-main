@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from pipelines import canon
@@ -39,9 +41,11 @@ def test_env_override_of_paper_root(tmp_path):
 
 
 def test_forbidden_roots_guard():
-    assert canon.is_forbidden("E:\\Project\\whatever\\file.pdf")
-    assert canon.is_forbidden("E:/Project/x")
-    assert not canon.is_forbidden("E:\\Paper\\library\\doi-1\\x.pdf")
+    """Canon-anchored: relocating the roots (machine move) keeps this green."""
+    root = Path(canon.forbidden_roots()[0])
+    assert canon.is_forbidden(str(root / "whatever" / "file.pdf"))
+    assert canon.is_forbidden(str(root / "x.pdf").replace("\\", "/"))
+    assert not canon.is_forbidden(str(canon.paper_root() / "library" / "doi-1" / "x.pdf"))
 
 
 def test_check_identity_sync_clean():

@@ -1,6 +1,6 @@
 # Idea Incubation OS v2
 
-> 代码仓 `D:\AppData\Project\Idea` ≠ 交付根 `E:\Idea`（成品交付）≠ 论文根 `E:\Paper`。
+> 代码仓 `D:\AppData\Project\Idea` ≠ 交付根 `D:\Research\Idea`（成品交付）≠ 论文根 `D:\Research\Paper`（四根随机器，只读 canon identity）。
 > 定位：**研究者主权的单机科研辅助工具**——文献发现 → claims 知识层 → idea 孵化与交付，止于 idea 交付。
 > 认知判断归会话内模型；本地代码只做**通道、门禁、审计、状态**。研究者反馈是唯一验证信号。
 > 数值单真源：`governance/workflow_authority.json`（canon，每条带 why）。架构：`docs/FOUNDATION-DESIGN.md`。
@@ -32,9 +32,9 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 | `claims-view` | 即席渲染（列表过滤 + 矛盾对：同 topic verdict 相反/数值冲突），不落盘 | M1.7 |
 | `idea-brief` | 碰撞三要素 + 教训注入 + 6 攻击 + 查新计划（四合一） | M2f |
 | `idea-add` | 供给门禁：coverage 未达阈值硬拦；过门后登记候选（M2f 完整孵化） | M1 门禁，M2f 完整 |
-| `publish` | 交付 4 件套到 E:\Idea + 镜像 E:\Backup\Idea + pool 除名 | M2h |
+| `publish` | 交付 4 件套到 D:\Research\Idea + 镜像 D:\Research\Backup\Idea + pool 除名 | M2h |
 | `feedback-add` | 研究者 verdict 回填（verdict+reason 必填，供给门输入） | M1.5 |
-| `feedback-import-v1` | 回填 E:\Idea 存量 29 条 verdict（只读扫描，28 待回填） | M1.5 |
+| `feedback-import-v1` | 回填 D:\Research\Idea 存量 29 条 verdict（只读扫描，28 待回填） | M1.5 |
 | `zotero-manifest` | 三段式第一步：manifest+SHA 暂存 | M2e |
 | `zotero-write` | 窄写面：仅 manifest 批准条目 | M2e |
 | `zotero-readback` | 回读审计并归档（行业空白能力） | M2e |
@@ -94,4 +94,4 @@ AGPL/GPL 插件仅作设计参考，不合并代码（AGENTS.md：borrow-not-mer
 
 ## 环境事实
 
-沙箱实测 6 条见 `docs/ENVIRONMENT.md`：PS 吞 stdout / 代理假 502 / SSL certifi / MinerU 冷启动≥120s / GUI 寿命 / safe-delete；网络与证书应对已内置在 `pipelines/search.py`。
+沙箱实测 6 条 + 迁移本机化 1 条见 `docs/ENVIRONMENT.md`：PS 吞 stdout / 代理假 502 / SSL certifi / MinerU 冷启动≥120s / GUI 寿命 / safe-delete / 本机数据根与工具链；网络与证书应对已内置在 `pipelines/search.py`。

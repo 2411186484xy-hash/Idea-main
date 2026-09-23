@@ -104,7 +104,7 @@
 | 页作用域 quote 硬 lint | `claims-add` 真校验：quote 空白归一后必须命中 `page_anchor` 页文本（±1 页边界容差），否则**拒绝**；文本来自 `pdf-extract --run --paper-key` 缓存的 `runs/<id>/text/<safe_key>.json` | V1 deepread_lint 全篇匹配过松教训（audit-C §5）；v2 现仅校验字段存在性 |
 | PDF 完整性门 | `%PDF` 魔数 + `%%EOF` 尾标 + ≥100KB（canon `pdf.min_bytes`）+ 失败即明确信封 | V1 LST:1770-1818/1935，v2 完全缺失（audit-A #3） |
 | 页渲染目检 | `pdf-extract --render <page>` 出 PNG 到 `runs/<id>/renders/`（git 排除），供会话模型对数值/图依赖 claim 目检；**不承诺**表格/公式自动抽取 | V1 `visual_verified` 自证教训（audit-C #4）：没有真看图就不许声称"视觉已核" |
-| OA 全文抓取 | 新命令 `pdf-fetch`：Unpaywall(mailto) → arXiv pdf → Europe PMC OA 全文 → `E:\Paper\_inbox\<paper_key>.pdf`；全败如实信封，无兜底渠道（Sci-Hub 永不） | V1 PDF 瀑布精简版（砍 arxiv-lib/MDPI/校网，audit-C 处置）；R2 自动化 |
+| OA 全文抓取 | 新命令 `pdf-fetch`：Unpaywall(mailto) → arXiv pdf → Europe PMC OA 全文 → `D:\Research\Paper\_inbox\<paper_key>.pdf`；全败如实信封，无兜底渠道（Sci-Hub 永不） | V1 PDF 瀑布精简版（砍 arxiv-lib/MDPI/校网，audit-C 处置）；R2 自动化 |
 | 深读任务书 | writer/verifier 盲分离已有（保留）；verifier 书附"数值精确模式"：数字必须逐字符匹配（禁四舍五入） | citation-check-skill 两遍法（survey-F，MIT 借鉴） |
 
 ---
@@ -116,7 +116,7 @@
 **本版新增**：
 
 1. **主题标签**：run.topic 存在时清单条目追加 `idea-os:topic:<topic_id>`（canon `zotero.tag_prefix`），使 Zotero 内可按研究主题过滤——这是 v2 检索主题体系在 Zotero 侧的投影。
-2. **claims → 笔记草稿 `zotero-notes`**：从 run 内 **仅 CONFIRMED** claims 生成逐篇 `note.md`（逐字引用 + `(p.N)` 页锚 + claim id），写 `E:\Paper\library\<paper_key>\note.md` 并镜像 SHA 一致；经 Better Notes 手动导入 Zotero（半自动通道边界，audit-B 教训）。
+2. **claims → 笔记草稿 `zotero-notes`**：从 run 内 **仅 CONFIRMED** claims 生成逐篇 `note.md`（逐字引用 + `(p.N)` 页锚 + claim id），写 `D:\Research\Paper\library\<paper_key>\note.md` 并镜像 SHA 一致；经 Better Notes 手动导入 Zotero（半自动通道边界，audit-B 教训）。
 3. **插件互补矩阵（README 一节，数据面契约）**：
 
 | 互补位 | 现状（插件/MCP） | v2 提供 |

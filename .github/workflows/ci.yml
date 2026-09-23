@@ -9,10 +9,11 @@ permissions:
 
 jobs:
   governance:
-    # Windows-only by design: canon identity roots (E:\Idea, E:\Paper, ...)
-    # are absolute paths only on Windows, so POSIX runners fail
-    # check_identity_sync and the cold-start test. Ubuntu grep is
-    # unavailable here, hence the pwsh Select-String scan below.
+    # Windows-only by design: canon identity roots are absolute Windows
+    # paths, so POSIX runners fail check_identity_sync and the cold-start
+    # test. Ubuntu grep is unavailable here, hence the pwsh Select-String
+    # scan below. The roots themselves are canon values (governance/), never
+    # restated in code or CI.
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -29,7 +30,7 @@ jobs:
         run: python -m pytest -q
       - name: Ruff
         run: ruff check .
-      - name: "Drive-letter scan (E:/C: roots live in canon, never in code)"
+      - name: "Drive-letter scan (roots live in canon, never in code)"
         shell: pwsh
         run: |
           $hits = Select-String -Path pipelines/*.py,cli.py -Pattern '(?<![A-Za-z0-9])[A-Za-z]:[\\/]'
