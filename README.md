@@ -32,7 +32,7 @@ python -m pytest -q               # 测试（stdlib-only，零依赖可跑）
 | `claims-view` | 即席渲染（列表过滤 + 矛盾对：同 topic verdict 相反/数值冲突），不落盘 | M1.7 |
 | `idea-brief` | 碰撞三要素 + 教训注入 + 6 攻击 + 查新计划（四合一） | M2f |
 | `idea-add` | 供给门禁：coverage 未达阈值硬拦；过门后登记候选（M2f 完整孵化） | M1 门禁，M2f 完整 |
-| `publish` | 交付 4 件套到 D:\Research\Idea + 镜像 D:\Research\Backup\Idea + pool 除名 | M2h |
+| `publish` | 交付 5 件套（idea/evidence/novelty/disproof + researcher-decision.json）到 D:\Research\Idea + 镜像 D:\Research\Backup\Idea + pool 除名 | M2h，M3.4 定型 |
 | `feedback-add` | 研究者 verdict 回填（verdict+reason 必填，供给门输入） | M1.5 |
 | `feedback-import-v1` | 回填 D:\Research\Idea 存量 29 条 verdict（只读扫描，28 待回填） | M1.5 |
 | `zotero-manifest` | 三段式第一步：manifest+SHA 暂存 | M2e |

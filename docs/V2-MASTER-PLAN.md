@@ -10,7 +10,7 @@
 
 **已执行**：M0 端口式重写 · M1 治理定型（1.1–1.8）· M2a–M2i 全部落地 · P1.1/P1.2 · 首轮端到端 run（`c9b3b7f`：38 claims / 16 papers / Zotero 写入+回读归档 / idea `region-availability-gate-single-shot-sl` 交付 / 研究者 accept verdict）。
 
-**基线数字**：pytest 135 passed · 代码 2582/4000 行 · 测试 1807/3000 行 · canon 119/200 行 · 21 命令 · search.py 299/300 行（贴顶）。
+**基线数字**（计划时快照）：pytest 135 passed · 代码 2582/4000 行 · 测试 1807/3000 行 · canon 119/200 行 · 21 命令 · search.py 299/300 行（贴顶）。
 
 **本次实测新发现（须在本版处置）**：
 

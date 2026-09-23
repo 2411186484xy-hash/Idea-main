@@ -10,7 +10,7 @@
 
 1. **做对一次**：底层 = 契约（contracts.py 数据模型）+ 纪律（store.py 全仓唯一写入口）+ 端口（search/pdf/zotero 隔离易变外部）。靠分层与测试保持形状，不靠冻结机制。
 2. **吸收即删（数据生命周期）**：run 是临时工作状态。收口（完成或放弃）→ 产物早已实时写入知识层/交付区 → **run 文件删除**。磁盘上只留"现在还活着的"：claims 知识、在途 idea、教训、反馈、session-log 一行。**git 是仓库的备份；D:\Research\Backup 是交付物的备份；知识层是唯一的机器记忆。** 没有冻结件、没有隔离区、没有归档目录。
-3. **少即是稳**：每加一个机制先问"V1 验证过它的价值吗？没有 → 不加"。命令 21 个、模块 13+1 个、canon ≤200 行、pipelines+cli ≤4k 行。
+3. **少即是稳**：每加一个机制先问"V1 验证过它的价值吗？没有 → 不加"。命令 23 个、模块 15 个、canon ≤200 行、pipelines+cli ≤4k 行。
 
 ### 0.1 文件架构（三区 · 含生命周期标注）
 
@@ -35,7 +35,7 @@
 
 区2 交付区（D:\Research · 只写交付物，永不写状态/账本）
   D:\Research\Paper   _inbox\(研究者投入的新 PDF) → library\<paper_key>\（paper-add 归档）
-  D:\Research\Idea    \<slug>\（publish 5 件套 + researcher-decision.json；V1 已有 29 目录）
+  D:\Research\Idea    \<slug>\（publish 5 件：idea/evidence/novelty/disproof + researcher-decision.json；V1 已有 29 目录）
   下游两仓只读 D:\Research\Idea，永不回写。
 
 区3 备份区（D:\Research\Backup · 镜像，V1 已在用）
@@ -80,7 +80,7 @@
 | 6 维质量卡 + 6 攻击清单 | canon 维度（novelty/rigor/feasibility/clarity/data_availability/venue_fit）+ hold 规则 |
 | Zotero 三段式 manifest+SHA+回读 | 原样保留（行业空白：无同类 MCP 仓有回读审计） |
 | 失败账本 → 下次生成前强制注入 | failure-ledger.jsonl + lesson 字段；idea-brief 注入、idea-add 校验已读 |
-| 交付 4 件套（DEC-0032/0035 分层） | publish 真实模板 + 内置校验 + 镜像 canon idea_mirror_root |
+| 交付 4 件套（DEC-0032/0035 分层） | publish 真实模板 + 内置校验 + 镜像 canon idea_mirror_root；V2 自 M3.4 起为 5 件（加 disproof.md） |
 | 反馈回路机制 | **第一里程碑**：feedback-import-v1 先回填 29 存量，coverage>0 前不扩供给 |
 | 网络纪律（OpenAlex polite pool、arXiv 3s 间隔、UA） | search.py 常量 + canon |
 | SSL certifi 兜底 / 代理清空（沙箱实测） | search.py 内置 + ENVIRONMENT.md 记事实 |
